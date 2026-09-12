@@ -23,6 +23,16 @@ public enum ErrorCode {
     USER_NOT_FOUND(1005, "用户不存在"),
     PASSWORD_TOO_WEAK(1006, "密码强度不足，至少 8 位"),
 
+    /* 项目相关 2001-2099 */
+    PROJECT_NOT_FOUND(2001, "项目不存在"),
+    NOT_PROJECT_MEMBER(2002, "不是该项目成员"),
+    INSUFFICIENT_PERMISSION(2003, "权限不足，无法执行该操作"),
+    MEMBER_ALREADY_EXISTS(2004, "该用户已是项目成员"),
+    MEMBER_NOT_FOUND(2005, "成员不存在"),
+    CANNOT_MODIFY_OWNER(2006, "不能修改项目所有者的角色"),
+    CANNOT_REMOVE_OWNER(2007, "不能移除项目所有者"),
+    PROJECT_NAME_EMPTY(2008, "项目名称不能为空"),
+
     /* AI 相关 5001-5099 */
     AI_SERVICE_ERROR(5001, "AI 服务调用失败"),
     AI_SERVICE_TIMEOUT(5002, "AI 服务超时"),

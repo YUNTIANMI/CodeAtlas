@@ -10,21 +10,25 @@
 
 ## 当前状态
 
-**Phase 2：用户系统**（进行中 —— 注册 / 登录 / 退出 / 鉴权已完成）
+**Phase 3：项目管理**（已完成 —— 项目 CRUD + 成员管理 + 四级权限矩阵）
+
+> 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | Phase 0 | 需求与架构 | ✅ 已完成 |
 | Phase 1 | 建立基础工程 | ✅ 已完成 |
-| Phase 2 | 用户与项目管理 | 🚧 进行中（用户系统已完成，项目管理待开发） |
-| Phase 3 | 文档与代码管理 | ⬜ 待开始 |
-| Phase 4 | RAG 知识库 | ⬜ 待开始 |
-| Phase 5 | AI 项目问答 | ⬜ 待开始 |
-| Phase 6 | AI Code Review | ⬜ 待开始 |
-| Phase 7 | Git 分析 | ⬜ 待开始 |
-| Phase 8 | Agent | ⬜ 待开始 |
-| Phase 9 | 测试与安全 | ⬜ 待开始 |
-| Phase 10 | Docker 部署 | ⬜ 待开始 |
+| Phase 2 | 用户系统 | ✅ 已完成 |
+| Phase 3 | 项目管理 | ✅ 已完成 |
+| Phase 4 | 文档与代码管理 | ⬜ 待开始 |
+| Phase 5 | 知识库与 RAG | ⬜ 待开始 |
+| Phase 6 | AI 项目问答 | ⬜ 待开始 |
+| Phase 7 | AI Code Review | ⬜ 待开始 |
+| Phase 8 | Git 分析 | ⬜ 待开始 |
+| Phase 9 | Agent | ⬜ 待开始 |
+| Phase 10 | 测试 | ⬜ 待开始 |
+| Phase 11 | 安全 | ⬜ 待开始 |
+| Phase 12 | Docker 部署 | ⬜ 待开始 |
 
 ---
 
@@ -81,7 +85,8 @@ CodeAtlas/
 │   └── src/main/java/com/codeatlas
 │       ├── common/         统一响应 · 异常 · 安全配置
 │       ├── user/           用户实体与查询
-│       └── auth/           JWT 认证 · 注册登录
+│       ├── auth/           JWT 认证 · 注册登录
+│       └── project/        项目 · 成员 · 权限校验
 ├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
 └── frontend/               React 前端（待建）
 ```
