@@ -140,6 +140,7 @@ erDiagram
 | 12 | `review_results` | Code Review 结果 |
 | 13 | `bug_reports` | Bug 分析报告 |
 | 14 | `ai_execution_logs` | AI 执行日志 |
+| 15 | `file_chunks` | 文件切分块（Phase 4 新增） |
 
 ---
 
@@ -401,6 +402,26 @@ erDiagram
 | created_at | DATETIME | |
 
 **索引：** `idx_project_id(project_id)`、`idx_created_at(created_at)`、`idx_request_type(request_type)`
+
+### 4.13 file_chunks（文件切分块）
+
+Phase 4 新增：承接「文件 → 解析 → 文本内容 → Chunk」链路，
+Phase 5 会将这些 Chunk 做 Embedding 后写入 Qdrant。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT PK | 主键 |
+| project_id | BIGINT | 关联 projects |
+| source_type | ENUM | `DOCUMENT` / `CODE` |
+| source_id | BIGINT | 关联 `documents.id` 或 `code_files.id` |
+| chunk_index | INT | 块序号，从 0 开始 |
+| content | TEXT | 块内容 |
+| indexed | TINYINT | 是否已写入向量库 |
+| created_at | DATETIME | |
+
+**索引：** `idx_file_chunks_source(source_type, source_id)`、`idx_file_chunks_project(project_id, indexed)`
+
+> 切分策略：默认 1000 字符、200 字符重叠，优先在换行处断开，避免切断句子与代码行。
 
 ---
 

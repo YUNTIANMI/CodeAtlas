@@ -33,6 +33,15 @@ public enum ErrorCode {
     CANNOT_REMOVE_OWNER(2007, "不能移除项目所有者"),
     PROJECT_NAME_EMPTY(2008, "项目名称不能为空"),
 
+    /* 文件相关 3001-3099 */
+    FILE_EMPTY(3001, "文件内容为空"),
+    UNSUPPORTED_FILE_TYPE(3002, "不支持的文件类型"),
+    FILE_TOO_LARGE(3003, "文件超过大小限制"),
+    DOCUMENT_NOT_FOUND(3004, "文档不存在"),
+    CODE_FILE_NOT_FOUND(3005, "代码文件不存在"),
+    FILE_PARSE_FAILED(3006, "文件解析失败"),
+    FILE_STORAGE_FAILED(3007, "文件存储失败"),
+
     /* AI 相关 5001-5099 */
     AI_SERVICE_ERROR(5001, "AI 服务调用失败"),
     AI_SERVICE_TIMEOUT(5002, "AI 服务超时"),
