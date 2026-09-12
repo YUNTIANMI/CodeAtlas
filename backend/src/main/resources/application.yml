@@ -37,6 +37,9 @@ spring:
       max-request-size: 20MB
 
 codeatlas:
+  storage:
+    type: ${STORAGE_TYPE:local}
+    root: ${STORAGE_ROOT:./uploads}
   jwt:
     secret: ${JWT_SECRET:codeatlas-default-secret-please-change-in-production-environment-32bytes}
     expiration: ${JWT_EXPIRATION:7200}

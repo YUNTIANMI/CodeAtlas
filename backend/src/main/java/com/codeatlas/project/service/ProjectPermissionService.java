@@ -41,6 +41,15 @@ public class ProjectPermissionService {
         return member;
     }
 
+    /** 要求具备写入权限（OWNER / ADMIN / MEMBER）：上传文档与代码、创建分析任务。 */
+    public ProjectMember requireWriter(Long projectId, Long userId) {
+        ProjectMember member = requireMember(projectId, userId);
+        if (!member.getRole().canWrite()) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_PERMISSION);
+        }
+        return member;
+    }
+
     /** 要求具备所有者权限（OWNER）：仅删除项目需要。 */
     public ProjectMember requireOwner(Long projectId, Long userId) {
         ProjectMember member = requireMember(projectId, userId);
