@@ -34,12 +34,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         User user = userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("用户不存在：" + usernameOrEmail));
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPasswordHash())
-                .disabled(!user.isEnabled())
-                .authorities(resolveAuthorities(user))
-                .build();
+        return new AuthUser(user.getId(), user.getUsername(), user.getPasswordHash(),
+                user.isEnabled(), resolveAuthorities(user));
     }
 
     /** 无角色时默认赋予 ROLE_USER，避免空权限导致鉴权异常。 */
