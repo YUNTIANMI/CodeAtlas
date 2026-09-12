@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 3：项目管理**（已完成 —— 项目 CRUD + 成员管理 + 四级权限矩阵）
+**Phase 4：文档与代码管理**（已完成 —— 上传 → 解析 → 切分，暂未接入 AI）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -20,7 +20,7 @@
 | Phase 1 | 建立基础工程 | ✅ 已完成 |
 | Phase 2 | 用户系统 | ✅ 已完成 |
 | Phase 3 | 项目管理 | ✅ 已完成 |
-| Phase 4 | 文档与代码管理 | ⬜ 待开始 |
+| Phase 4 | 文档与代码管理 | ✅ 已完成 |
 | Phase 5 | 知识库与 RAG | ⬜ 待开始 |
 | Phase 6 | AI 项目问答 | ⬜ 待开始 |
 | Phase 7 | AI Code Review | ⬜ 待开始 |
@@ -86,7 +86,10 @@ CodeAtlas/
 │       ├── common/         统一响应 · 异常 · 安全配置
 │       ├── user/           用户实体与查询
 │       ├── auth/           JWT 认证 · 注册登录
-│       └── project/        项目 · 成员 · 权限校验
+│       ├── project/        项目 · 成员 · 权限校验
+│       ├── document/       文档 · 解析 · 切分
+│       ├── code/           代码文件 · 目录结构
+│       └── storage/        文件存储抽象（本地 / 可迁移对象存储）
 ├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
 └── frontend/               React 前端（待建）
 ```
