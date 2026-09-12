@@ -10,13 +10,13 @@
 
 ## 当前状态
 
-**Phase 0：需求与架构**（已完成）
+**Phase 2：用户系统**（进行中 —— 注册 / 登录 / 退出 / 鉴权已完成）
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | Phase 0 | 需求与架构 | ✅ 已完成 |
-| Phase 1 | 建立基础工程 | ⬜ 待开始 |
-| Phase 2 | 用户与项目管理 | ⬜ 待开始 |
+| Phase 1 | 建立基础工程 | ✅ 已完成 |
+| Phase 2 | 用户与项目管理 | 🚧 进行中（用户系统已完成，项目管理待开发） |
 | Phase 3 | 文档与代码管理 | ⬜ 待开始 |
 | Phase 4 | RAG 知识库 | ⬜ 待开始 |
 | Phase 5 | AI 项目问答 | ⬜ 待开始 |
@@ -77,7 +77,12 @@ CodeAtlas/
 │   ├── api.md              REST API 设计
 │   ├── development.md      开发阶段计划与开发规范
 │   └── decisions/          架构决策记录（ADR）
-├── backend/                Spring Boot 后端（待建）
+├── backend/                Spring Boot 后端（Java 17 + Maven）
+│   └── src/main/java/com/codeatlas
+│       ├── common/         统一响应 · 异常 · 安全配置
+│       ├── user/           用户实体与查询
+│       └── auth/           JWT 认证 · 注册登录
+├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
 └── frontend/               React 前端（待建）
 ```
 
@@ -111,13 +116,45 @@ docs: update API documentation
 
 ## 本地开发
 
-```bash
-# 克隆
-git clone git@github.com:YUNTIANMI/CodeAtlas.git
-cd CodeAtlas
+### 1. 启动依赖服务
 
-# 切换到开发分支
-git switch develop
+```bash
+docker compose up -d          # MySQL 3306 / Redis 6379 / Qdrant 6333
+docker compose ps             # 确认容器健康
+```
+
+### 2. 启动后端
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+后端启动时会通过 `schema.sql` 自动建表，并初始化 `ROLE_USER` / `ROLE_ADMIN`。
+
+### 3. 验证
+
+```bash
+curl http://localhost:8080/health
+# {"status":"UP","db":"up","redis":"up"}
+```
+
+### 4. 试用用户系统
+
+```bash
+# 注册
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@example.com","password":"password123"}'
+
+# 登录，取得 token
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"password123"}'
+
+# 访问受保护接口
+curl http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <token>"
 ```
 
 > 本项目为个人开发环境，GitHub 22 端口不可用，SSH 已配置走 `ssh.github.com:443`。
