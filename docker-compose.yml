@@ -1,19 +1,22 @@
 # 本地开发依赖环境
 # 启动：docker compose up -d
 # 停止：docker compose down
-# 注意：仅用于本地开发，生产部署见 docs/architecture.md
+#
+# 端口说明：本机 3306 已被系统 MySQL 服务占用、6379 已被其他项目容器占用、
+# 3308 落在 Hyper-V 保留端口段，因此 CodeAtlas 本地环境使用 23306 / 16379。
+# 应用配置（application.yml）的默认值已与之对应。
 
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: codeatlas-mysql
     ports:
-      - "3306:3306"
+      - "23306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: codeatlas
       TZ: Asia/Shanghai
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -26,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: codeatlas-redis
     ports:
-      - "6379:6379"
+      - "16379:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data

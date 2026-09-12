@@ -119,9 +119,12 @@ docs: update API documentation
 ### 1. 启动依赖服务
 
 ```bash
-docker compose up -d          # MySQL 3306 / Redis 6379 / Qdrant 6333
-docker compose ps             # 确认容器健康
+docker compose up -d
+docker compose ps
 ```
+
+本地端口分配：MySQL **23306**、Redis **16379**、Qdrant **6333**
+（3306 与 6379 在常见开发机上容易被系统服务或其他项目占用，3308 可能落在 Hyper-V 保留段，故错开）
 
 ### 2. 启动后端
 
