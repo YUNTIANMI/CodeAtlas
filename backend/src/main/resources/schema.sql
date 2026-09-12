@@ -79,6 +79,67 @@ CREATE TABLE IF NOT EXISTS project_members (
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '项目成员表';
 
+-- Phase 4 文档与代码管理
+CREATE TABLE IF NOT EXISTS documents (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    project_id    BIGINT       NOT NULL,
+    name          VARCHAR(255) NOT NULL,
+    file_type     VARCHAR(20)  NOT NULL,
+    file_size     BIGINT       DEFAULT NULL,
+    storage_path  VARCHAR(500) NOT NULL,
+    version       INT          NOT NULL DEFAULT 1,
+    uploaded_by   BIGINT       DEFAULT NULL,
+    indexed       TINYINT      NOT NULL DEFAULT 0,
+    deleted       TINYINT      NOT NULL DEFAULT 0,
+    created_at    DATETIME     NOT NULL,
+    updated_at    DATETIME     NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_documents_project_id (project_id),
+    KEY idx_documents_indexed (indexed)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '项目文档表';
+
+CREATE TABLE IF NOT EXISTS code_files (
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    project_id  BIGINT       NOT NULL,
+    file_path   VARCHAR(500) NOT NULL,
+    file_name   VARCHAR(255) NOT NULL,
+    language    VARCHAR(20)  DEFAULT NULL,
+    content     LONGTEXT     DEFAULT NULL,
+    file_size   BIGINT       DEFAULT NULL,
+    commit_hash VARCHAR(64)  DEFAULT NULL,
+    version     INT          NOT NULL DEFAULT 1,
+    indexed     TINYINT      NOT NULL DEFAULT 0,
+    created_at  DATETIME     NOT NULL,
+    updated_at  DATETIME     NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_code_files_path (project_id, file_path),
+    KEY idx_code_files_language (language),
+    KEY idx_code_files_indexed (indexed)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '源代码文件表';
+
+CREATE TABLE IF NOT EXISTS file_chunks (
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id   BIGINT      NOT NULL,
+    source_type  VARCHAR(20) NOT NULL,
+    source_id    BIGINT      NOT NULL,
+    chunk_index  INT         NOT NULL,
+    content      TEXT        NOT NULL,
+    indexed      TINYINT     NOT NULL DEFAULT 0,
+    created_at   DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_file_chunks_source (source_type, source_id),
+    KEY idx_file_chunks_project (project_id, indexed)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '文件切分块表';
+
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
