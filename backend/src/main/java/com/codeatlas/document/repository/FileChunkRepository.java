@@ -17,6 +17,8 @@ public interface FileChunkRepository extends JpaRepository<FileChunk, Long> {
 
     List<FileChunk> findByProjectIdAndIndexedFalse(Long projectId);
 
+    List<FileChunk> findByProjectId(Long projectId);
+
     long countByProjectId(Long projectId);
 
     int deleteBySourceTypeAndSourceId(FileChunk.SourceType sourceType, Long sourceId);
