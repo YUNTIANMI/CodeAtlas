@@ -10,11 +10,11 @@
 
 ## 当前状态
 
-**Phase 0：需求与架构**（进行中）
+**Phase 0：需求与架构**（已完成）
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| Phase 0 | 需求与架构 | 🚧 进行中 |
+| Phase 0 | 需求与架构 | ✅ 已完成 |
 | Phase 1 | 建立基础工程 | ⬜ 待开始 |
 | Phase 2 | 用户与项目管理 | ⬜ 待开始 |
 | Phase 3 | 文档与代码管理 | ⬜ 待开始 |
@@ -72,7 +72,9 @@ CodeAtlas/
 ├── README.md
 ├── docs/
 │   ├── requirements.md     需求规格说明书（SRS）
-│   ├── architecture.md     技术选型与架构说明
+│   ├── architecture.md     技术选型与系统架构
+│   ├── database.md         数据库设计与 ER 图
+│   ├── api.md              REST API 设计
 │   ├── development.md      开发阶段计划与开发规范
 │   └── decisions/          架构决策记录（ADR）
 ├── backend/                Spring Boot 后端（待建）
@@ -129,4 +131,16 @@ git switch develop
 |---|---|
 | [需求规格说明书](docs/requirements.md) | 项目背景、用户角色、功能需求、MVP 范围与验收标准 |
 | [技术选型说明书](docs/architecture.md) | 技术栈、分层架构、RAG 与 Agent 设计、部署方案 |
+| [数据库设计](docs/database.md) | 14 张表字段设计、ER 图、权限矩阵与命名规范 |
+| [API 设计](docs/api.md) | REST 接口约定、错误码、各模块端点与权限要求 |
 | [开发阶段计划](docs/development.md) | 阶段划分、版本规划、AI 协同开发规范 |
+
+### 架构决策记录（ADR）
+
+| 编号 | 决策 |
+|---|---|
+| [ADR-001](docs/decisions/ADR-001-database.md) | 为什么选择 MySQL |
+| [ADR-002](docs/decisions/ADR-002-vector-db.md) | 为什么选择 Qdrant |
+| [ADR-003](docs/decisions/ADR-003-auth.md) | 为什么采用 JWT 无状态认证 |
+| [ADR-004](docs/decisions/ADR-004-monolith.md) | 为什么不使用微服务 |
+| [ADR-005](docs/decisions/ADR-005-agent-readonly.md) | 为什么 Agent 只读且只能通过工具访问 |
