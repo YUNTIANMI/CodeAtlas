@@ -40,6 +40,29 @@ codeatlas:
   storage:
     type: ${STORAGE_TYPE:local}
     root: ${STORAGE_ROOT:./uploads}
+
+  # AI 配置：API Key 一律从环境变量读取，禁止写进配置文件
+  ai:
+    chat:
+      provider: ${AI_CHAT_PROVIDER:deepseek}
+      model: ${AI_CHAT_MODEL:deepseek-chat}
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${AI_CHAT_BASE_URL:https://api.deepseek.com}
+      timeout-seconds: 60
+    embedding:
+      provider: ${AI_EMBEDDING_PROVIDER:ollama}
+      model: ${AI_EMBEDDING_MODEL:bge-m3}
+      dimension: ${AI_EMBEDDING_DIMENSION:1024}
+      base-url: ${AI_EMBEDDING_BASE_URL:http://localhost:11434}
+      api-key: ${EMBEDDING_API_KEY:}
+      batch-size: 16
+      timeout-seconds: 60
+
+  qdrant:
+    host: ${QDRANT_HOST:localhost}
+    port: ${QDRANT_PORT:6333}
+    collection: ${QDRANT_COLLECTION:codeatlas}
+
   jwt:
     secret: ${JWT_SECRET:codeatlas-default-secret-please-change-in-production-environment-32bytes}
     expiration: ${JWT_EXPIRATION:7200}
