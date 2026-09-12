@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 4：文档与代码管理**（已完成 —— 上传 → 解析 → 切分，暂未接入 AI）
+**Phase 5：知识库与 RAG**（已完成 —— 向量化 → 检索 → 基于项目资料的问答）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -21,7 +21,7 @@
 | Phase 2 | 用户系统 | ✅ 已完成 |
 | Phase 3 | 项目管理 | ✅ 已完成 |
 | Phase 4 | 文档与代码管理 | ✅ 已完成 |
-| Phase 5 | 知识库与 RAG | ⬜ 待开始 |
+| Phase 5 | 知识库与 RAG | ✅ 已完成 |
 | Phase 6 | AI 项目问答 | ⬜ 待开始 |
 | Phase 7 | AI Code Review | ⬜ 待开始 |
 | Phase 8 | Git 分析 | ⬜ 待开始 |
@@ -89,10 +89,51 @@ CodeAtlas/
 │       ├── project/        项目 · 成员 · 权限校验
 │       ├── document/       文档 · 解析 · 切分
 │       ├── code/           代码文件 · 目录结构
+│       ├── knowledge/      知识库构建 · 检索 · RAG 问答
+│       ├── ai/             AI Provider 抽象 · Qdrant 客户端
 │       └── storage/        文件存储抽象（本地 / 可迁移对象存储）
 ├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
 └── frontend/               React 前端（待建）
 ```
+
+---
+
+## AI 配置（环境变量）
+
+AI 能力通过 `AIProvider` 抽象接入，**不绑定任何模型厂商**。
+
+当前默认组合：
+
+| 能力 | 提供方 | 模型 | 说明 |
+|---|---|---|---|
+| LLM（生成答案） | DeepSeek | `deepseek-chat` | 需要 API Key |
+| Embedding（向量化） | 本地 Ollama | `bge-m3`（1024 维） | 免费、无需 Key、可离线运行 |
+
+密钥通过**环境变量**注入，切勿写进配置文件或提交到仓库：
+
+```bash
+# Windows PowerShell
+$env:DEEPSEEK_API_KEY = "你的 Key"
+
+# Linux / macOS
+export DEEPSEEK_API_KEY=你的Key
+```
+
+切换模型只需改配置：
+
+```yaml
+codeatlas:
+  ai:
+    chat:
+      provider: deepseek      # deepseek / openai / ollama
+      model: deepseek-chat
+    embedding:
+      provider: ollama        # ollama / siliconflow / openai
+      model: bge-m3
+      dimension: 1024
+```
+
+> 更换 Embedding 模型后，向量维度需与 Qdrant 集合一致，需清空知识库后重建。
 
 ---
 
