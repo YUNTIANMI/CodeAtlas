@@ -140,6 +140,76 @@ CREATE TABLE IF NOT EXISTS file_chunks (
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '文件切分块表';
 
+-- Phase 6 AI 项目问答
+CREATE TABLE IF NOT EXISTS conversations (
+    id          BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id  BIGINT      NOT NULL,
+    user_id     BIGINT      NOT NULL,
+    title       VARCHAR(255) DEFAULT NULL,
+    created_at  DATETIME    NOT NULL,
+    updated_at  DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_conversations_project_user (project_id, user_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'AI 会话表';
+
+CREATE TABLE IF NOT EXISTS messages (
+    id               BIGINT      NOT NULL AUTO_INCREMENT,
+    conversation_id  BIGINT      NOT NULL,
+    role             VARCHAR(20) NOT NULL,
+    content          TEXT        NOT NULL,
+    model            VARCHAR(50) DEFAULT NULL,
+    token_count      INT         DEFAULT NULL,
+    created_at       DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_messages_conversation (conversation_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '会话消息表';
+
+CREATE TABLE IF NOT EXISTS citations (
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    message_id   BIGINT      NOT NULL,
+    source_type  VARCHAR(20) NOT NULL,
+    source_id    BIGINT      NOT NULL,
+    file_name    VARCHAR(500) DEFAULT NULL,
+    chunk_index  INT          DEFAULT NULL,
+    score        DOUBLE       DEFAULT NULL,
+    snippet      VARCHAR(500) DEFAULT NULL,
+    created_at   DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_citations_message (message_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '回答引用来源表';
+
+CREATE TABLE IF NOT EXISTS ai_execution_logs (
+    id                 BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id         BIGINT      DEFAULT NULL,
+    user_id            BIGINT      DEFAULT NULL,
+    request_type       VARCHAR(50) DEFAULT NULL,
+    model              VARCHAR(50) DEFAULT NULL,
+    tools_used         TEXT        DEFAULT NULL,
+    retrieved_content  TEXT        DEFAULT NULL,
+    prompt_tokens      INT         DEFAULT NULL,
+    completion_tokens  INT         DEFAULT NULL,
+    execution_time_ms  INT         DEFAULT NULL,
+    success            TINYINT     DEFAULT NULL,
+    error_message      TEXT        DEFAULT NULL,
+    result             TEXT        DEFAULT NULL,
+    created_at         DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_ai_logs_project (project_id),
+    KEY idx_ai_logs_created (created_at)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'AI 执行日志表';
+
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
