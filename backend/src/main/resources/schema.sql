@@ -276,6 +276,27 @@ CREATE TABLE IF NOT EXISTS git_commits (
   COLLATE = utf8mb4_unicode_ci
   COMMENT = 'Git 提交记录表';
 
+-- Phase 9 Agent 工具调用记录
+CREATE TABLE IF NOT EXISTS agent_tool_calls (
+    id                 BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id         BIGINT      NOT NULL,
+    user_id            BIGINT      DEFAULT NULL,
+    task               TEXT        DEFAULT NULL,
+    tool_name          VARCHAR(50) NOT NULL,
+    input_content      TEXT        DEFAULT NULL,
+    output_content     TEXT        DEFAULT NULL,
+    execution_time_ms  INT         DEFAULT NULL,
+    success            TINYINT     NOT NULL DEFAULT 1,
+    error_message      TEXT        DEFAULT NULL,
+    step_index         INT         DEFAULT NULL,
+    created_at         DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_agent_calls_project (project_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'Agent 工具调用记录表';
+
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
