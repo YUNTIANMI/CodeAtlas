@@ -42,6 +42,10 @@ public enum ErrorCode {
     FILE_PARSE_FAILED(3006, "文件解析失败"),
     FILE_STORAGE_FAILED(3007, "文件存储失败"),
 
+    /* 代码审查 7001-7099 */
+    REVIEW_NOT_FOUND(7001, "审查结果不存在"),
+    REVIEW_PARSE_FAILED(7003, "AI 返回内容无法解析为结构化结果"),
+
     /* AI 相关 5001-5099 */
     AI_SERVICE_ERROR(5001, "AI 服务调用失败"),
     AI_SERVICE_TIMEOUT(5002, "AI 服务超时"),

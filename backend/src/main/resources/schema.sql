@@ -140,6 +140,30 @@ CREATE TABLE IF NOT EXISTS file_chunks (
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '文件切分块表';
 
+-- Phase 7 AI Code Review
+CREATE TABLE IF NOT EXISTS review_results (
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id   BIGINT      NOT NULL,
+    user_id      BIGINT      DEFAULT NULL,
+    source_type  VARCHAR(20) DEFAULT NULL,
+    source_ref   VARCHAR(500) DEFAULT NULL,
+    severity     VARCHAR(20) DEFAULT NULL,
+    category     VARCHAR(50) DEFAULT NULL,
+    file_path    VARCHAR(500) DEFAULT NULL,
+    line         INT         DEFAULT NULL,
+    description  TEXT        DEFAULT NULL,
+    risk         TEXT        DEFAULT NULL,
+    suggestion   TEXT        DEFAULT NULL,
+    model        VARCHAR(50) DEFAULT NULL,
+    created_at   DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_review_project (project_id),
+    KEY idx_review_severity (severity)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '代码审查结果表';
+
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
