@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -44,20 +45,46 @@ public class DeepSeekChatProvider implements ChatProvider {
 
     @Override
     public String chat(String systemPrompt, String userPrompt) {
+        return callApi(List.of(
+                Map.of("role", "system", "content", systemPrompt == null ? "" : systemPrompt),
+                Map.of("role", "user", "content", userPrompt)));
+    }
+
+    @Override
+    public String chat(String systemPrompt, List<String[]> history, String userPrompt) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", systemPrompt == null ? "" : systemPrompt));
+
+        if (history != null) {
+            for (String[] turn : history) {
+                if (turn == null || turn.length < 2) {
+                    continue;
+                }
+                String role = "ASSISTANT".equalsIgnoreCase(turn[0]) ? "assistant" : "user";
+                messages.add(Map.of("role", role, "content", turn[1] == null ? "" : turn[1]));
+            }
+        }
+        messages.add(Map.of("role", "user", "content", userPrompt));
+        return callApi(messages);
+    }
+
+    private String callApi(List<? extends Map<String, String>> messages) {
         Map<String, Object> body = Map.of(
                 "model", properties.getModel(),
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemPrompt == null ? "" : systemPrompt),
-                        Map.of("role", "user", "content", userPrompt)
-                ),
-                "stream", false
-        );
+                "messages", messages,
+                "stream", false);
 
-        String response = restClient.post()
-                .uri("/chat/completions")
-                .body(body)
-                .retrieve()
-                .body(String.class);
+        String response;
+        try {
+            response = restClient.post()
+                    .uri("/chat/completions")
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception ex) {
+            log.error("DeepSeek 调用失败 | model={}", properties.getModel(), ex);
+            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务调用失败：" + ex.getMessage());
+        }
 
         try {
             JsonNode root = objectMapper.readTree(response);

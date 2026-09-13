@@ -42,6 +42,10 @@ public enum ErrorCode {
     FILE_PARSE_FAILED(3006, "文件解析失败"),
     FILE_STORAGE_FAILED(3007, "文件存储失败"),
 
+    /* 会话相关 6001-6099 */
+    CONVERSATION_NOT_FOUND(6001, "会话不存在"),
+    MESSAGE_EMPTY(6002, "提问内容不能为空"),
+
     /* AI 相关 5001-5099 */
     AI_SERVICE_ERROR(5001, "AI 服务调用失败"),
     AI_SERVICE_TIMEOUT(5002, "AI 服务超时"),
