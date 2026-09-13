@@ -72,8 +72,17 @@ codeatlas:
   jwt:
     secret: ${JWT_SECRET:codeatlas-default-secret-please-change-in-production-environment-32bytes}
     expiration: ${JWT_EXPIRATION:7200}
+
+  # 安全相关配置（Phase 11）
+  security:
+    # 登录失败限流：同一账号连续失败 max-attempts 次后锁定 lock-seconds 秒
+    login:
+      max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
+      lock-seconds: ${LOGIN_LOCK_SECONDS:900}
+
+  # 跨域白名单：逗号分隔的完整来源（含协议与端口），禁止使用 * 通配
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
 
 logging:
   level:

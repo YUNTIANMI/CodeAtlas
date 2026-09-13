@@ -34,6 +34,9 @@ public class DocumentService {
 
     private static final long MAX_FILE_SIZE = 20L * 1024 * 1024;
 
+    /** 文件名长度上限，避免超长名称写入数据库失败（同时限制异常输入）。 */
+    private static final int MAX_FILE_NAME_LENGTH = 255;
+
     private final DocumentRepository documentRepository;
 
     private final FileChunkRepository chunkRepository;
@@ -68,6 +71,13 @@ public class DocumentService {
         String originalName = file.getOriginalFilename();
         if (file.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_EMPTY);
+        }
+        // 文件名只用于展示与取扩展名，落盘名由数据库 ID 生成（见 StorageService 注释），
+        // 因此这里只需拦住超长与空名，不存在路径穿越风险
+        if (originalName == null || originalName.isBlank()
+                || originalName.length() > MAX_FILE_NAME_LENGTH) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST,
+                    "文件名不合法（长度需在 1-" + MAX_FILE_NAME_LENGTH + " 之间）");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);

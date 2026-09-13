@@ -16,7 +16,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -47,18 +46,22 @@ public class AuthService {
 
     private final TokenBlacklistService blacklistService;
 
+    private final LoginAttemptService loginAttemptService;
+
     public AuthService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
                        JwtTokenProvider tokenProvider,
-                       TokenBlacklistService blacklistService) {
+                       TokenBlacklistService blacklistService,
+                       LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
         this.blacklistService = blacklistService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     /** 注册：校验唯一性后写入 BCrypt 密码哈希，并赋予默认角色 ROLE_USER。 */
@@ -94,11 +97,21 @@ public class AuthService {
     /** 登录：校验凭据后签发 Token，并更新最后登录时间。 */
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        // 防止密码暴力破解：已锁定则直接拒绝，不再执行密码校验
+        if (loginAttemptService.isBlocked(request.getUsername())) {
+            log.warn("登录被限流拦截 | username={}", request.getUsername());
+            throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS,
+                    "登录失败次数过多，请稍后再试");
+        }
+
+        Authentication authentication;
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                    request.getUsername(), request.getPassword()));
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(), request.getPassword()));
         } catch (BadCredentialsException ex) {
             // 不区分用户不存在与密码错误，避免账号枚举
+            loginAttemptService.recordFailure(request.getUsername());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         } catch (DisabledException ex) {
             throw new BusinessException(ErrorCode.USER_DISABLED);
@@ -111,12 +124,14 @@ public class AuthService {
             throw new BusinessException(ErrorCode.USER_DISABLED);
         }
 
+        loginAttemptService.reset(request.getUsername());
+
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        UserDetails userDetails = new AuthUser(user.getId(), user.getUsername(),
-                user.getPasswordHash(), user.isEnabled(),
-                List.of(new SimpleGrantedAuthority(Role.ROLE_USER)));
+        // 直接使用认证结果中的主体：其权限来自数据库真实角色（而非硬编码），
+        // 且与后续请求经 JwtAuthenticationFilter 加载的权限保持一致
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
         String token = tokenProvider.generateToken(userDetails);
         log.info("用户登录成功 | userId={} | username={}", user.getId(), user.getUsername());
