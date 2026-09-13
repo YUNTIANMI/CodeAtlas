@@ -192,7 +192,25 @@ Authorization: Bearer <token>
 | GET | `/api/v1/projects/{id}/code/structure` | 项目目录结构 |
 | DELETE | `/api/v1/code/{fileId}` | 删除代码文件 |
 
-第一阶段支持：`java`、`cpp`、`py`、`js`、`ts`。
+**上传参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `file` | file | 是 | 代码文件本体 |
+| `path` | string | 否 | 入库相对路径，建议写成完整路径如 `src/main/java/UserService.java`；留空则仅用文件名 |
+
+`path` 会做规整：统一分隔符、剔除空段与 `.` / `..`，长度上限 500 字符（与 `code_files.file_path` 列宽一致）。
+由于 `code_files` 上有 `UNIQUE(project_id, file_path)`，同一路径重复上传会覆盖旧记录，可用于增量重传。
+
+**支持类型**：`java`、`cpp`、`cc`、`cxx`、`c`、`h`、`hpp`、`py`、`js`、`jsx`、`ts`、`tsx`；单文件上限 5MB。
+
+前端「上传源码目录」按 `webkitdirectory` 选取整个目录，逐个文件串行调用本接口，并在本地完成过滤：
+
+- 依赖与构建产物目录：`node_modules`、`vendor`、`dist`、`build`、`target`、`venv`、`__pycache__`、`.git`、`.idea` 等
+- 测试目录：`test`、`tests`、`__tests__`、`spec`、`mocks` 等（可在界面上勾选保留）
+- 生成文件：`*.min.js`、`*.d.ts`、`*.map`、`*.pb.go` 等
+
+上传路径会自动锚定到 `src` 段，因此无论用户选项目根目录还是直接选 `src`，入库后都是 `src/main/java/...` 形式。
 
 ---
 

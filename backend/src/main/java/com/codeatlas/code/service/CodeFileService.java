@@ -19,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 代码文件服务：上传、查看、删除与目录结构。
@@ -35,6 +37,9 @@ public class CodeFileService {
     private static final Logger log = LoggerFactory.getLogger(CodeFileService.class);
 
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
+
+    /** code_files.file_path 列宽，超长会在入库时抛数据库异常，这里提前拦截。 */
+    private static final int MAX_PATH_LENGTH = 500;
 
     private final CodeFileRepository codeFileRepository;
 
@@ -79,9 +84,7 @@ public class CodeFileService {
         }
 
         String content = fileParser.parse(originalName, data);
-        String resolvedPath = (filePath == null || filePath.isBlank())
-                ? originalName
-                : filePath.replace("\\", "/");
+        String resolvedPath = resolveFilePath(filePath, originalName);
 
         CodeFile codeFile = codeFileRepository
                 .findByProjectIdAndFilePath(projectId, resolvedPath)
@@ -158,6 +161,30 @@ public class CodeFileService {
         codeFileRepository.delete(codeFile);
 
         log.info("代码文件删除成功 | fileId={} | userId={}", fileId, userId);
+    }
+
+    /**
+     * 规整入库路径。
+     *
+     * <p>前端上传源码目录时会带上相对路径（如 src/main/java/UserService.java），
+     * 未提供时退化为纯文件名。统一分隔符并剔除空段与 "." / ".."，
+     * 避免同一文件因写法不同而重复入库（code_files 上有 UNIQUE(project_id, file_path)）。
+     */
+    private String resolveFilePath(String filePath, String originalName) {
+        if (filePath == null || filePath.isBlank()) {
+            return originalName;
+        }
+        String normalized = Arrays.stream(filePath.replace("\\", "/").split("/"))
+                .filter(segment -> !segment.isBlank() && !".".equals(segment) && !"..".equals(segment))
+                .collect(Collectors.joining("/"));
+        if (normalized.isEmpty()) {
+            return originalName;
+        }
+        if (normalized.length() > MAX_PATH_LENGTH) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST,
+                    "文件路径超过 " + MAX_PATH_LENGTH + " 字符：" + normalized);
+        }
+        return normalized;
     }
 
     private CodeFile requireCodeFile(Long fileId) {

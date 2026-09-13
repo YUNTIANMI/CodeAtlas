@@ -36,6 +36,10 @@ public class DeepSeekChatProvider implements ChatProvider {
 
     public DeepSeekChatProvider(AiProperties properties) {
         this.properties = properties.getChat();
+        if (!hasApiKey()) {
+            log.warn("未配置 DEEPSEEK_API_KEY 环境变量，AI 问答功能将不可用；"
+                    + "请设置该变量后重启后端（PowerShell 示例：$env:DEEPSEEK_API_KEY=\"sk-xxx\"）");
+        }
         this.restClient = RestClient.builder()
                 .baseUrl(this.properties.getBaseUrl())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -68,7 +72,18 @@ public class DeepSeekChatProvider implements ChatProvider {
         return callApi(messages);
     }
 
+    /** 是否已配置可用的 API Key。 */
+    private boolean hasApiKey() {
+        return properties.getApiKey() != null && !properties.getApiKey().isBlank();
+    }
+
     private String callApi(List<? extends Map<String, String>> messages) {
+        if (!hasApiKey()) {
+            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR,
+                    "未配置 DEEPSEEK_API_KEY 环境变量，AI 问答不可用；"
+                            + "请在启动后端前设置该环境变量（详见 README 的 AI 配置说明）");
+        }
+
         Map<String, Object> body = Map.of(
                 "model", properties.getModel(),
                 "messages", messages,
