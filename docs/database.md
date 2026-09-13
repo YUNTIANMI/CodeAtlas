@@ -304,6 +304,7 @@ erDiagram
 | additions | INT | 新增行数 |
 | deletions | INT | 删除行数 |
 | diff_content | LONGTEXT | Diff 内容（用于 AI 分析） |
+| summary | TEXT | AI 生成的提交摘要（Phase 8 新增） |
 | analyzed | TINYINT | 是否已生成 AI 摘要 |
 
 **索引：** `idx_repo_id(repo_id)`、`idx_committed_at(committed_at)`

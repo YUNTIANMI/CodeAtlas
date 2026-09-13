@@ -63,6 +63,12 @@ codeatlas:
     port: ${QDRANT_PORT:6333}
     collection: ${QDRANT_COLLECTION:codeatlas}
 
+  # Git 集成（只读，不提供任何写操作）
+  git:
+    github:
+      api-base: ${GITHUB_API_BASE:https://api.github.com}
+      token: ${GITHUB_TOKEN:}
+
   jwt:
     secret: ${JWT_SECRET:codeatlas-default-secret-please-change-in-production-environment-32bytes}
     expiration: ${JWT_EXPIRATION:7200}
