@@ -37,8 +37,24 @@ public class QdrantClient {
                 .build();
     }
 
-    /** 创建集合（已存在时忽略），向量维度必须与 Embedding 模型一致。 */
+    /**
+     * 确保集合存在（幂等）。
+     *
+     * <p>Qdrant 对已存在的集合执行 PUT 会返回 409 Conflict，因此必须先查询集合是否存在：
+     * 已存在且维度一致则直接复用，维度不一致给出明确提示，均不会误报为「向量库不可用」。
+     */
     public void ensureCollection(int dimension) {
+        Integer existing = existingDimension();
+        if (existing != null) {
+            if (existing != dimension) {
+                throw new BusinessException(ErrorCode.VECTOR_STORE_UNAVAILABLE,
+                        "向量库集合维度不一致（现有 " + existing + "，期望 " + dimension
+                                + "），请先清空知识库后重建");
+            }
+            log.info("Qdrant 集合已就绪 | collection={} | dimension={}", collection, existing);
+            return;
+        }
+
         Map<String, Object> body = Map.of(
                 "vectors", Map.of("size", dimension, "distance", "Cosine")
         );
@@ -48,10 +64,38 @@ public class QdrantClient {
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Qdrant 集合已就绪 | collection={} | dimension={}", collection, dimension);
+            log.info("Qdrant 集合已创建 | collection={} | dimension={}", collection, dimension);
         } catch (Exception ex) {
+            log.error("Qdrant 集合创建失败 | collection={} | dimension={}", collection, dimension, ex);
             throw new BusinessException(ErrorCode.VECTOR_STORE_UNAVAILABLE,
                     "向量库不可用，请确认 Qdrant 已启动");
+        }
+    }
+
+    /** 读取已有集合的向量维度；集合不存在或读取失败时返回 {@code null}。 */
+    private Integer existingDimension() {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.get()
+                    .uri("/collections/" + collection)
+                    .retrieve()
+                    .body(Map.class);
+            if (response == null || !(response.get("result") instanceof Map<?, ?> resultMap)) {
+                return null;
+            }
+            if (!(resultMap.get("config") instanceof Map<?, ?> configMap)) {
+                return null;
+            }
+            if (!(configMap.get("params") instanceof Map<?, ?> paramsMap)) {
+                return null;
+            }
+            if (paramsMap.get("vectors") instanceof Map<?, ?> vectorsMap
+                    && vectorsMap.get("size") instanceof Number size) {
+                return size.intValue();
+            }
+            return null;
+        } catch (Exception ex) {
+            return null;
         }
     }
 
@@ -75,6 +119,7 @@ public class QdrantClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
+            log.error("向量写入失败 | collection={} | points={}", collection, points.size(), ex);
             throw new BusinessException(ErrorCode.VECTOR_STORE_UNAVAILABLE, "向量写入失败");
         }
     }
