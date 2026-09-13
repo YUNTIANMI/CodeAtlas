@@ -20,8 +20,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +61,9 @@ class AuthServiceTest {
 
     @Mock
     private TokenBlacklistService blacklistService;
+
+    @Mock
+    private LoginAttemptService loginAttemptService;
 
     @InjectMocks
     private AuthService authService;
@@ -138,6 +144,8 @@ class AuthServiceTest {
         request.setUsername("alice");
         request.setPassword("password123");
 
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authenticatedPrincipal());
         when(userRepository.findByUsernameOrEmail("alice", "alice"))
                 .thenReturn(Optional.of(sampleUser));
         when(userRepository.save(any(User.class))).thenReturn(sampleUser);
@@ -150,10 +158,19 @@ class AuthServiceTest {
         assertEquals("jwt-token", response.getToken());
         assertEquals(7200L, response.getExpiresIn());
         assertNotNull(sampleUser.getLastLoginAt());
+        verify(loginAttemptService).reset("alice");
+        verify(loginAttemptService, never()).recordFailure(anyString());
+    }
+
+    /** 认证成功后的主体：Token 的权限取自这里，因此必须是数据库中的真实角色。 */
+    private Authentication authenticatedPrincipal() {
+        AuthUser principal = new AuthUser(1L, "alice", "hashed-password",
+                List.of(new SimpleGrantedAuthority(Role.ROLE_ADMIN)));
+        return new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
     }
 
     @Test
-    @DisplayName("登录失败：密码错误（不区分用户不存在，避免账号枚举）")
+    @DisplayName("登录失败：密码错误（不区分用户不存在，避免账号枚举）并累计失败次数")
     void loginBadCredentials() {
         LoginRequest request = new LoginRequest();
         request.setUsername("alice");
@@ -165,6 +182,7 @@ class AuthServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> authService.login(request));
         assertEquals(ErrorCode.INVALID_CREDENTIALS, ex.getErrorCode());
+        verify(loginAttemptService).recordFailure("alice");
     }
 
     @Test
@@ -180,6 +198,23 @@ class AuthServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> authService.login(request));
         assertEquals(ErrorCode.USER_DISABLED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("登录被限流：账号已锁定时直接返回 429，不再校验密码")
+    void loginBlockedByRateLimit() {
+        LoginRequest request = new LoginRequest();
+        request.setUsername("alice");
+        request.setPassword("password123");
+
+        when(loginAttemptService.isBlocked("alice")).thenReturn(true);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> authService.login(request));
+
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, ex.getErrorCode());
+        verify(authenticationManager, never()).authenticate(any());
+        verify(userRepository, never()).findByUsernameOrEmail(anyString(), anyString());
     }
 
     @Test

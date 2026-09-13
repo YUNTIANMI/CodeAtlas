@@ -4,6 +4,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,14 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
+
+    /** HS256 要求密钥至少 32 字节。 */
+    private static final int MIN_SECRET_BYTES = 32;
+
+    /** application.yml 中的占位密钥前缀，出现即说明未通过环境变量覆盖。 */
+    private static final String DEFAULT_SECRET_PREFIX = "codeatlas-default-secret";
+
     private final String secret;
 
     private final long expirationSeconds;
@@ -29,6 +39,25 @@ public class JwtTokenProvider {
                             @Value("${codeatlas.jwt.expiration}") long expirationSeconds) {
         this.secret = secret;
         this.expirationSeconds = expirationSeconds;
+        warnIfInsecureSecret(secret);
+    }
+
+    /**
+     * 启动期检查签名密钥强度。
+     *
+     * <p>密钥一旦泄露，任何人都可以伪造任意用户（含管理员）的 Token，
+     * 因此使用默认占位密钥或过短密钥时必须给出醒目告警。
+     */
+    private void warnIfInsecureSecret(String secret) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+            log.warn("JWT 密钥长度不足 {} 字节，存在被暴力破解的风险，请在 JWT_SECRET 中配置强随机密钥",
+                    MIN_SECRET_BYTES);
+            return;
+        }
+        if (secret.startsWith(DEFAULT_SECRET_PREFIX)) {
+            log.warn("正在使用默认 JWT 密钥，生产环境必须通过环境变量 JWT_SECRET 覆盖，"
+                    + "否则任何人都可以伪造 Token");
+        }
     }
 
     /** 生成 Token，subject 为用户名。 */

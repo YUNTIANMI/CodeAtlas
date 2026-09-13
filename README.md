@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 10：测试**（已完成 —— 全模块单元测试 141 项，含权限矩阵与越权隔离）
+**Phase 11：安全**（已完成 —— 单元测试 239 项；并对运行中的服务做了 39 项端到端安全验证，全部通过）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -27,7 +27,7 @@
 | Phase 8 | Git 分析 | ✅ 已完成 |
 | Phase 9 | Agent | ✅ 已完成 |
 | Phase 10 | 测试 | ✅ 已完成 |
-| Phase 11 | 安全 | ⬜ 待开始 |
+| Phase 11 | 安全 | ✅ 已完成 |
 | Phase 12 | Docker 部署 | ⬜ 待开始 |
 
 ---
@@ -41,6 +41,29 @@
 - **Git 分析**：导入仓库、同步 Commit、AI 生成提交摘要（只读，不 Push）
 - **AI Agent**：通过受控工具（搜代码 / 读文件 / 查文档 / 查提交）完成多步任务
 - **执行记录**：记录模型、工具、检索内容、耗时与 Token，用于调试与审计
+
+---
+
+## 安全基线（Phase 11）
+
+| 风险面 | 措施 |
+|---|---|
+| 认证 | JWT 无状态认证；签名密钥 HS256（≥32 字节）；启动时检测默认密钥并告警 |
+| 密码 | BCrypt 加盐哈希存储；登录失败不区分「用户不存在 / 密码错误」，防账号枚举 |
+| 暴力破解 | 同一账号连续失败 5 次锁定 15 分钟（Redis 计数，锁定期间不校验密码） |
+| 越权（IDOR） | 「当前用户 ID」只取自认证上下文，**从不信任请求参数**；每个接口经 `ProjectPermissionService` 校验项目成员身份与角色 |
+| 项目内角色 | OWNER / ADMIN / MEMBER / VIEWER 四级权限矩阵，读 / 写 / 管理分别校验 |
+| Token 失效 | 退出登录后 Token 进入 Redis 黑名单，立即失效 |
+| CSRF | 凭据只走 `Authorization` 头（不使用 Cookie），已关闭 CSRF 且无攻击面 |
+| CORS | 白名单来自 `CORS_ALLOWED_ORIGINS`，禁止 `*` 通配，携带凭据的跨域只放行声明来源 |
+| SQL 注入 | 全部通过 Spring Data JPA 参数绑定访问数据库，无字符串拼接 SQL |
+| XSS | 纯 JSON 接口，不返回 HTML；响应头开启 `Content-Security-Policy: default-src 'none'`、`nosniff` |
+| 文件上传 | 扩展名白名单（md / java / cpp / py / js / ts）、20MB 上限、文件名长度校验；落盘名由数据库 ID 生成，杜绝路径穿越 |
+| 错误信息 | 统一异常处理，未预期异常只返回 `500` + 通用文案，堆栈仅进服务端日志 |
+| 日志 | 不记录密码、Token、API Key 等敏感字段 |
+
+> 端到端验证脚本覆盖：未认证 / 乱码 Token / 篡改 Token → 401，用户 B 访问用户 A 的项目（详情、文档、成员、上传、修改、删除、伪造 `userId` 参数）→ 403，
+> 上传边界 → 400，登出后 Token 立即失效 → 401，登录失败 6 次 → 429，CORS 白名单与安全响应头校验。
 
 ---
 
@@ -85,7 +108,7 @@ CodeAtlas/
 │   └── src/main/java/com/codeatlas
 │       ├── common/         统一响应 · 异常 · 安全配置
 │       ├── user/           用户实体与查询
-│       ├── auth/           JWT 认证 · 注册登录
+│       ├── auth/           JWT 认证 · 注册登录 · 登录失败限流 · Token 黑名单
 │       ├── project/        项目 · 成员 · 权限校验
 │       ├── document/       文档 · 解析 · 切分
 │       ├── code/           代码文件 · 目录结构
@@ -187,6 +210,16 @@ mvn spring-boot:run
 ```
 
 后端启动时会通过 `schema.sql` 自动建表，并初始化 `ROLE_USER` / `ROLE_ADMIN`。
+
+### 2.1 安全相关环境变量
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `JWT_SECRET` | 内置占位密钥 | **生产必须覆盖**，HS256 要求 ≥32 字节，否则启动时打印告警 |
+| `JWT_EXPIRATION` | `7200` | Token 有效期（秒） |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 跨域白名单，逗号分隔，禁止 `*` |
+| `LOGIN_MAX_ATTEMPTS` | `5` | 登录连续失败多少次后锁定账号 |
+| `LOGIN_LOCK_SECONDS` | `900` | 锁定时长（秒） |
 
 ### 3. 验证
 
