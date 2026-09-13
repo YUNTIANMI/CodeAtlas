@@ -50,6 +50,13 @@ public enum ErrorCode {
     REVIEW_NOT_FOUND(7001, "审查结果不存在"),
     REVIEW_PARSE_FAILED(7003, "AI 返回内容无法解析为结构化结果"),
 
+    /* Git 相关 8001-8099 */
+    GIT_REPO_NOT_FOUND(8001, "尚未配置 Git 仓库"),
+    GIT_COMMIT_NOT_FOUND(8002, "提交记录不存在"),
+    INVALID_REPO_URL(8003, "仓库地址格式不正确"),
+    GIT_SYNC_FAILED(8004, "Git 同步失败"),
+    GIT_REPO_EXISTS(8005, "该项目已配置 Git 仓库"),
+
     /* AI 相关 5001-5099 */
     AI_SERVICE_ERROR(5001, "AI 服务调用失败"),
     AI_SERVICE_TIMEOUT(5002, "AI 服务超时"),

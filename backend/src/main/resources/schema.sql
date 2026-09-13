@@ -234,6 +234,48 @@ CREATE TABLE IF NOT EXISTS review_results (
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '代码审查结果表';
 
+-- Phase 8 Git 分析
+CREATE TABLE IF NOT EXISTS git_repositories (
+    id                BIGINT      NOT NULL AUTO_INCREMENT,
+    project_id        BIGINT      NOT NULL,
+    repo_url          VARCHAR(500) NOT NULL,
+    provider          VARCHAR(20)  DEFAULT NULL,
+    full_name         VARCHAR(200) DEFAULT NULL,
+    default_branch    VARCHAR(100) DEFAULT NULL,
+    access_token_ref  VARCHAR(255) DEFAULT NULL,
+    last_synced_at    DATETIME     DEFAULT NULL,
+    sync_status       VARCHAR(20)  DEFAULT NULL,
+    created_at        DATETIME    NOT NULL,
+    updated_at        DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_git_repo_project (project_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'Git 仓库配置表';
+
+CREATE TABLE IF NOT EXISTS git_commits (
+    id            BIGINT      NOT NULL AUTO_INCREMENT,
+    repo_id       BIGINT      NOT NULL,
+    commit_hash   VARCHAR(64) NOT NULL,
+    message       TEXT        DEFAULT NULL,
+    author_name   VARCHAR(100) DEFAULT NULL,
+    author_email  VARCHAR(100) DEFAULT NULL,
+    committed_at  DATETIME     DEFAULT NULL,
+    additions     INT          DEFAULT NULL,
+    deletions     INT          DEFAULT NULL,
+    diff_content  LONGTEXT     DEFAULT NULL,
+    summary       TEXT         DEFAULT NULL,
+    analyzed      TINYINT     NOT NULL DEFAULT 0,
+    created_at    DATETIME    NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_git_commits_hash (commit_hash),
+    KEY idx_git_commits_repo (repo_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'Git 提交记录表';
+
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
