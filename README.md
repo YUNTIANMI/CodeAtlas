@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 9：AI Agent**（已完成 —— 5 个只读工具 + 自主决策 + 完整调用轨迹）
+**Phase 10：测试**（已完成 —— 全模块单元测试 141 项，含权限矩阵与越权隔离）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -26,7 +26,7 @@
 | Phase 7 | AI Code Review | ✅ 已完成 |
 | Phase 8 | Git 分析 | ✅ 已完成 |
 | Phase 9 | Agent | ✅ 已完成 |
-| Phase 10 | 测试 | ⬜ 待开始 |
+| Phase 10 | 测试 | ✅ 已完成 |
 | Phase 11 | 安全 | ⬜ 待开始 |
 | Phase 12 | Docker 部署 | ⬜ 待开始 |
 
