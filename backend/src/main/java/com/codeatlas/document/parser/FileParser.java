@@ -27,9 +27,10 @@ public class FileParser {
             "py", "js", "jsx", "ts", "tsx"
     );
 
-    /** 代码扩展名与语言的映射。 */
+    /** 代码扩展名与语言的映射，需与 resolveLanguage 保持一致。 */
     private static final Set<String> CODE_EXTENSIONS = Set.of(
-            "java", "cpp", "cc", "cxx", "py", "js", "jsx", "ts", "tsx"
+            "java", "cpp", "cc", "cxx", "c", "h", "hpp",
+            "py", "js", "jsx", "ts", "tsx"
     );
 
     /** 解析为文本内容。 */
