@@ -141,6 +141,7 @@ erDiagram
 | 13 | `bug_reports` | Bug 分析报告 |
 | 14 | `ai_execution_logs` | AI 执行日志 |
 | 15 | `file_chunks` | 文件切分块（Phase 4 新增） |
+| 16 | `citations` | 回答引用来源（Phase 6 新增） |
 
 ---
 
@@ -331,7 +332,7 @@ erDiagram
 | content | TEXT | 消息内容 |
 | model | VARCHAR(50) | 使用的模型 |
 | token_count | INT | Token 用量 |
-| citations | JSON | 引用来源（文件/路径/Commit） |
+| citations | — | 已拆分为独立的 `citations` 表，见 4.14 |
 | created_at | DATETIME | |
 
 **索引：** `idx_conversation_id(conversation_id)`
@@ -422,6 +423,28 @@ Phase 5 会将这些 Chunk 做 Embedding 后写入 Qdrant。
 **索引：** `idx_file_chunks_source(source_type, source_id)`、`idx_file_chunks_project(project_id, indexed)`
 
 > 切分策略：默认 1000 字符、200 字符重叠，优先在换行处断开，避免切断句子与代码行。
+
+### 4.14 citations（回答引用来源）
+
+Phase 6 新增：把每次回答命中的检索位置持久化，
+使用户可以核对「答案来自哪个文件的哪一段」。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT PK | 主键 |
+| message_id | BIGINT | 关联 messages |
+| source_type | VARCHAR(20) | `DOCUMENT` / `CODE` |
+| source_id | BIGINT | 关联 `documents.id` 或 `code_files.id` |
+| file_name | VARCHAR(500) | 冗余存储文件名，避免展示时逐条回查 |
+| chunk_index | INT | 命中的切分块序号 |
+| score | DOUBLE | 相关度 |
+| snippet | VARCHAR(500) | 片段预览 |
+| created_at | DATETIME | |
+
+**索引：** `idx_citations_message(message_id)`
+
+> 设计为独立表而非 messages 中的 JSON 字段，是为了支持按来源维度统计
+> （例如"哪些文件被引用最多"），这也是区别于普通 AI 聊天的关键能力。
 
 ---
 

@@ -42,6 +42,10 @@ public enum ErrorCode {
     FILE_PARSE_FAILED(3006, "文件解析失败"),
     FILE_STORAGE_FAILED(3007, "文件存储失败"),
 
+    /* 会话相关 6001-6099 */
+    CONVERSATION_NOT_FOUND(6001, "会话不存在"),
+    MESSAGE_EMPTY(6002, "提问内容不能为空"),
+
     /* 代码审查 7001-7099 */
     REVIEW_NOT_FOUND(7001, "审查结果不存在"),
     REVIEW_PARSE_FAILED(7003, "AI 返回内容无法解析为结构化结果"),

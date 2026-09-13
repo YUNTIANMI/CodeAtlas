@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 5：知识库与 RAG**（已完成 —— 向量化 → 检索 → 基于项目资料的问答）
+**Phase 6：AI 项目问答**（已完成 —— 会话持久化 + 多轮上下文 + 文件名引用）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -22,7 +22,7 @@
 | Phase 3 | 项目管理 | ✅ 已完成 |
 | Phase 4 | 文档与代码管理 | ✅ 已完成 |
 | Phase 5 | 知识库与 RAG | ✅ 已完成 |
-| Phase 6 | AI 项目问答 | ⬜ 待开始 |
+| Phase 6 | AI 项目问答 | ✅ 已完成 |
 | Phase 7 | AI Code Review | ⬜ 待开始 |
 | Phase 8 | Git 分析 | ⬜ 待开始 |
 | Phase 9 | Agent | ⬜ 待开始 |
@@ -90,7 +90,8 @@ CodeAtlas/
 │       ├── document/       文档 · 解析 · 切分
 │       ├── code/           代码文件 · 目录结构
 │       ├── knowledge/      知识库构建 · 检索 · RAG 问答
-│       ├── ai/             AI Provider 抽象 · Qdrant 客户端
+│       ├── chat/           会话 · 消息 · 引用（Phase 6）
+│       ├── ai/             Provider 抽象 · Qdrant 客户端 · 执行日志
 │       └── storage/        文件存储抽象（本地 / 可迁移对象存储）
 ├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
 └── frontend/               React 前端（待建）
