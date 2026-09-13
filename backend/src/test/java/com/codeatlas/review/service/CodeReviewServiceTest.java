@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,7 +59,8 @@ class CodeReviewServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(chatProvider.modelName()).thenReturn("deepseek:deepseek-chat");
+        // 部分用例（无权限、空内容、查询类）不会走到模型标识，故使用 lenient
+        lenient().when(chatProvider.modelName()).thenReturn("deepseek:deepseek-chat");
     }
 
     private static final String SAMPLE_CODE = """
