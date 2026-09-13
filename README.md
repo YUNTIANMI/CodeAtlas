@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-**Phase 8：Git 分析**（已完成 —— 导入仓库 / 同步提交 / AI 生成提交摘要，只读）
+**Phase 9：AI Agent**（已完成 —— 5 个只读工具 + 自主决策 + 完整调用轨迹）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -25,7 +25,7 @@
 | Phase 6 | AI 项目问答 | ✅ 已完成 |
 | Phase 7 | AI Code Review | ✅ 已完成 |
 | Phase 8 | Git 分析 | ✅ 已完成 |
-| Phase 9 | Agent | ⬜ 待开始 |
+| Phase 9 | Agent | ✅ 已完成 |
 | Phase 10 | 测试 | ⬜ 待开始 |
 | Phase 11 | 安全 | ⬜ 待开始 |
 | Phase 12 | Docker 部署 | ⬜ 待开始 |
@@ -92,7 +92,8 @@ CodeAtlas/
 │       ├── knowledge/      知识库构建 · 检索 · RAG 问答
 │       ├── chat/           会话 · 消息 · 引用（Phase 6）
 │       ├── review/         AI Code Review 结构化结果（Phase 7）
-│       └── git/            GitHub 客户端 · 提交同步 · AI 摘要（Phase 8，只读）
+│       ├── git/            GitHub 客户端 · 提交同步 · AI 摘要（Phase 8，只读）
+│       └── agent/          Agent 引擎 · 5 个只读工具 · 调用轨迹（Phase 9）
 │       ├── ai/             Provider 抽象 · Qdrant 客户端 · 执行日志
 │       └── storage/        文件存储抽象（本地 / 可迁移对象存储）
 ├── docker-compose.yml      MySQL + Redis + Qdrant 本地环境

@@ -142,6 +142,7 @@ erDiagram
 | 14 | `ai_execution_logs` | AI 执行日志 |
 | 15 | `file_chunks` | 文件切分块（Phase 4 新增） |
 | 16 | `citations` | 回答引用来源（Phase 6 新增） |
+| 17 | `agent_tool_calls` | Agent 工具调用记录（Phase 9 新增） |
 
 ---
 
@@ -446,6 +447,31 @@ Phase 6 新增：把每次回答命中的检索位置持久化，
 
 > 设计为独立表而非 messages 中的 JSON 字段，是为了支持按来源维度统计
 > （例如"哪些文件被引用最多"），这也是区别于普通 AI 聊天的关键能力。
+
+### 4.15 agent_tool_calls（Agent 工具调用记录）
+
+Phase 9 新增：按文档要求记录每次工具调用的
+**Tool Name、Input、Output、Execution Time、Success / Failure**。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT PK | 主键 |
+| project_id | BIGINT | 关联 projects |
+| user_id | BIGINT | 关联 users |
+| task | TEXT | 本次 Agent 任务描述 |
+| tool_name | VARCHAR(50) | 工具名，如 `search_code` |
+| input_content | TEXT | 入参摘要 |
+| output_content | TEXT | 出参内容 |
+| execution_time_ms | INT | 执行耗时 |
+| success | TINYINT | 是否成功 |
+| error_message | TEXT | 失败原因 |
+| step_index | INT | 属于第几步推理 |
+| created_at | DATETIME | |
+
+**索引：** `idx_agent_calls_project(project_id)`
+
+> 记录调用链的意义：Agent 的自主性带来不确定性，
+> 完整轨迹是排查"为什么给出这个结论"的唯一依据（见 ADR-005）。
 
 ---
 
