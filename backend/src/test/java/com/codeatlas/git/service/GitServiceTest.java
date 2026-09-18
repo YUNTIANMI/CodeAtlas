@@ -161,9 +161,9 @@ class GitServiceTest {
                         "alice@example.com", "2026-09-13T10:00:00Z"),
                 new GitHubClient.CommitInfo("bbb222", "fix: resolve bug", "bob",
                         "bob@example.com", "2026-09-13T11:00:00Z")));
-        // 第一条已存在
-        when(commitRepository.existsByCommitHash("aaa111")).thenReturn(true);
-        when(commitRepository.existsByCommitHash("bbb222")).thenReturn(false);
+        // 第一条在当前仓库中已存在
+        when(commitRepository.existsByRepoIdAndCommitHash(REPO_ID, "aaa111")).thenReturn(true);
+        when(commitRepository.existsByRepoIdAndCommitHash(REPO_ID, "bbb222")).thenReturn(false);
 
         SyncResultVO result = gitService.syncCommits(PROJECT_ID, USER_ID, null);
 
@@ -172,6 +172,36 @@ class GitServiceTest {
         assertEquals(1, result.getSkipped());
         verify(commitRepository).saveAll(any());
         assertNotNull(repository.getLastSyncedAt());
+    }
+
+    @Test
+    @DisplayName("同步提交：去重按仓库隔离，其它项目导入过同一仓库也不影响本项目")
+    void syncCommitsDeduplicatesWithinRepositoryOnly() {
+        when(repositoryRepository.findByProjectId(PROJECT_ID)).thenReturn(Optional.of(repository));
+        when(gitHubClient.listCommits("YUNTIANMI/CodeAtlas", 30)).thenReturn(List.of(
+                new GitHubClient.CommitInfo("aaa111", "feat: add user module", "alice",
+                        "alice@example.com", "2026-09-13T10:00:00Z")));
+        // 当前仓库没有该提交：即便别的项目已经把这个仓库导入过，本项目仍应入库
+        when(commitRepository.existsByRepoIdAndCommitHash(REPO_ID, "aaa111")).thenReturn(false);
+
+        SyncResultVO result = gitService.syncCommits(PROJECT_ID, USER_ID, null);
+
+        assertEquals(1, result.getTotal());
+        assertEquals(1, result.getAdded());
+        assertEquals(0, result.getSkipped());
+        verify(commitRepository).existsByRepoIdAndCommitHash(REPO_ID, "aaa111");
+    }
+
+    @Test
+    @DisplayName("同步提交：limit 超过上限时收敛到最大值，避免无节制请求远端")
+    void syncCommitsCapsLimit() {
+        when(repositoryRepository.findByProjectId(PROJECT_ID)).thenReturn(Optional.of(repository));
+        when(gitHubClient.listCommits("YUNTIANMI/CodeAtlas", 500)).thenReturn(List.of());
+
+        SyncResultVO result = gitService.syncCommits(PROJECT_ID, USER_ID, 99999);
+
+        assertEquals(0, result.getTotal());
+        verify(gitHubClient).listCommits("YUNTIANMI/CodeAtlas", 500);
     }
 
     @Test

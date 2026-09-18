@@ -53,6 +53,12 @@ public class GitService {
             - 不要复述完整的提交信息
             """;
 
+    /** 未指定 limit 时默认同步的提交条数。 */
+    private static final int DEFAULT_SYNC_LIMIT = 30;
+
+    /** 单次同步允许拉取的最大提交条数，避免一次同步请求过多触发 GitHub 限流。 */
+    private static final int MAX_SYNC_LIMIT = 500;
+
     private static final Pattern HTTPS_PATTERN =
             Pattern.compile("https?://(?:www\\.)?github\\.com/([\\w.-]+)/([\\w.-]+?)(?:\\.git)?/?$");
 
@@ -134,7 +140,9 @@ public class GitService {
         permissionService.requireWriter(projectId, userId);
         GitRepository repository = requireRepository(projectId);
 
-        int size = (limit == null || limit <= 0) ? 30 : Math.min(limit, 100);
+        int size = (limit == null || limit <= 0)
+                ? DEFAULT_SYNC_LIMIT
+                : Math.min(limit, MAX_SYNC_LIMIT);
         List<GitHubClient.CommitInfo> remote = gitHubClient.listCommits(repository.getFullName(), size);
 
         int added = 0;
@@ -144,7 +152,8 @@ public class GitService {
             if (info.sha() == null) {
                 continue;
             }
-            if (commitRepository.existsByCommitHash(info.sha())) {
+            // 判重必须限定在当前仓库内：同一个提交可能已被其它项目导入
+            if (commitRepository.existsByRepoIdAndCommitHash(repository.getId(), info.sha())) {
                 skipped++;
                 continue;
             }

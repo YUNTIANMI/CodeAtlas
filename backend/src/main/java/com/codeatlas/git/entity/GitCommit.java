@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +17,8 @@ import java.time.LocalDateTime;
  * <p>字段设计详见 docs/database.md 4.8 节。
  */
 @Entity
-@Table(name = "git_commits")
+@Table(name = "git_commits", uniqueConstraints = @UniqueConstraint(
+        name = "uk_git_commits_repo_hash", columnNames = {"repo_id", "commit_hash"}))
 public class GitCommit {
 
     @Id
@@ -26,7 +28,11 @@ public class GitCommit {
     @Column(name = "repo_id", nullable = false)
     private Long repoId;
 
-    @Column(name = "commit_hash", nullable = false, unique = true, length = 64)
+    /**
+     * 提交哈希。唯一性由 (repo_id, commit_hash) 联合约束保证，不能只对哈希做全局唯一：
+     * 同一仓库可能被多个项目导入，跨仓库也可能出现重复哈希（fork / cherry-pick）。
+     */
+    @Column(name = "commit_hash", nullable = false, length = 64)
     private String commitHash;
 
     @Column(columnDefinition = "TEXT")

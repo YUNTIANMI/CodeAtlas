@@ -359,7 +359,7 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/projects/{id}/git` | 配置仓库 |
-| POST | `/api/v1/projects/{id}/git/sync` | 同步 Commits |
+| POST | `/api/v1/projects/{id}/git/sync` | 同步 Commits，可选 `limit`（默认 30，最大 500），超过 100 条自动翻页拉取 |
 | GET | `/api/v1/projects/{id}/git/commits` | 提交列表 |
 | GET | `/api/v1/git/commits/{id}/summary` | AI 提交摘要 |
 

@@ -80,7 +80,7 @@ erDiagram
     git_commits {
         BIGINT id PK
         BIGINT repo_id FK
-        VARCHAR commit_hash UK
+        VARCHAR commit_hash
         TEXT message
         DATETIME committed_at
     }
@@ -297,7 +297,7 @@ erDiagram
 |---|---|---|
 | id | BIGINT PK | 主键 |
 | repo_id | BIGINT | 关联 git_repositories |
-| commit_hash | VARCHAR(64) UNIQUE | 提交哈希 |
+| commit_hash | VARCHAR(64) | 提交哈希，与 repo_id 组成唯一键 |
 | message | TEXT | 提交信息 |
 | author_name | VARCHAR(100) | 作者 |
 | author_email | VARCHAR(100) | 作者邮箱 |
@@ -308,7 +308,10 @@ erDiagram
 | summary | TEXT | AI 生成的提交摘要（Phase 8 新增） |
 | analyzed | TINYINT | 是否已生成 AI 摘要 |
 
-**索引：** `idx_repo_id(repo_id)`、`idx_committed_at(committed_at)`
+**索引：** `UNIQUE(repo_id, commit_hash)`、`idx_git_commits_repo(repo_id)`
+
+> 唯一键**必须**是 `(repo_id, commit_hash)` 而不是单独的 `commit_hash`：多个项目允许导入同一个仓库，
+> 若把哈希当成全局唯一，后导入的项目会把所有提交判定为已存在而跳过，提交列表会长期不全。
 
 ---
 

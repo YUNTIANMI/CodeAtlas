@@ -33,8 +33,12 @@ spring:
 
   servlet:
     multipart:
+      # 单文件上限 20MB，但请求总大小必须留出余量：
+      # multipart 请求体额外携带 boundary 与分段头部，
+      # 若 max-request-size 与 max-file-size 同为 20MB，
+      # 恰好 20MB 的文件会在进入业务校验前就被容器拒绝。
       max-file-size: 20MB
-      max-request-size: 20MB
+      max-request-size: 25MB
 
 codeatlas:
   storage:

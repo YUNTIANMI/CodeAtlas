@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS git_commits (
     analyzed      TINYINT     NOT NULL DEFAULT 0,
     created_at    DATETIME    NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_git_commits_hash (commit_hash),
+    UNIQUE KEY uk_git_commits_repo_hash (repo_id, commit_hash),
     KEY idx_git_commits_repo (repo_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -300,3 +300,42 @@ CREATE TABLE IF NOT EXISTS agent_tool_calls (
 -- 初始化内置角色
 INSERT IGNORE INTO roles (id, name, description) VALUES (1, 'ROLE_USER', '普通用户');
 INSERT IGNORE INTO roles (id, name, description) VALUES (2, 'ROLE_ADMIN', '平台管理员');
+
+-- ============================================================
+-- 增量迁移（必须保持幂等，本脚本每次启动都会执行）
+--
+-- 上面的 CREATE TABLE IF NOT EXISTS 只能覆盖全新部署，
+-- 已存在的库不会因它而改变结构，结构变更一律写在这里。
+-- 注意：spring.sql.init.continue-on-error=false，
+-- 任何一条语句报错都会导致后端启动失败。
+-- ============================================================
+
+-- 迁移：git_commits 唯一约束由 (commit_hash) 改为 (repo_id, commit_hash)。
+-- 原约束把提交哈希视为全局唯一，导致多个项目导入同一个仓库时，
+-- 后导入的项目会把所有提交判定为「已存在」而跳过，提交列表长期不全。
+-- MySQL 不支持 DROP INDEX IF EXISTS，因此查 information_schema 做幂等判断。
+SET @drop_git_commits_hash_index = (
+    SELECT IF(COUNT(*) > 0,
+              'ALTER TABLE git_commits DROP INDEX uk_git_commits_hash',
+              'DO 0')
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'git_commits'
+      AND INDEX_NAME = 'uk_git_commits_hash'
+);
+PREPARE migrate_stmt FROM @drop_git_commits_hash_index;
+EXECUTE migrate_stmt;
+DEALLOCATE PREPARE migrate_stmt;
+
+SET @add_git_commits_repo_hash_index = (
+    SELECT IF(COUNT(*) = 0,
+              'ALTER TABLE git_commits ADD UNIQUE KEY uk_git_commits_repo_hash (repo_id, commit_hash)',
+              'DO 0')
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'git_commits'
+      AND INDEX_NAME = 'uk_git_commits_repo_hash'
+);
+PREPARE migrate_stmt FROM @add_git_commits_repo_hash_index;
+EXECUTE migrate_stmt;
+DEALLOCATE PREPARE migrate_stmt;
