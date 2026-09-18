@@ -16,8 +16,29 @@ info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 die()  { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
+SECRET_HINT="openssl rand -base64 48"
+
 # 从 .env 读取单个变量（不 source，避免密码含特殊字符时的副作用）
 get_env() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2-; }
+
+# 覆盖写入 .env 中的单个变量（不存在则追加）。用于自动生成密钥。
+set_env() {
+  if grep -qE "^$1=" .env; then
+    # 以 | 作 sed 分隔符，避免密钥中的 / 破坏表达式
+    sed -i.bak "s|^$1=.*|$1=$2|" .env && rm -f .env.bak
+  else
+    printf '%s=%s\n' "$1" "$2" >> .env
+  fi
+}
+
+# 生成 48 字节随机密钥（Base64 编码）。
+generate_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 48 | tr -d '\n'
+  else
+    head -c 48 /dev/urandom | base64 | tr -d '\n'
+  fi
+}
 
 # ---------- 1. 检查 Docker ----------
 if ! command -v docker >/dev/null 2>&1; then
@@ -31,7 +52,7 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 不可用，请
 if [ ! -f .env ]; then
   cp .env.example .env
   warn "已从 .env.example 生成 .env，请先编辑以下必填项后重新运行："
-  warn "  JWT_SECRET、MYSQL_ROOT_PASSWORD、SITE_ADDRESS（可选 DEEPSEEK_API_KEY、GITHUB_TOKEN）"
+  warn "  SITE_ADDRESS、MYSQL_ROOT_PASSWORD（JWT_SECRET 留空会在下一步自动生成）"
   exit 0
 fi
 
@@ -40,7 +61,26 @@ SITE_ADDRESS="$(get_env SITE_ADDRESS)"
 JWT_SECRET="$(get_env JWT_SECRET)"
 MYSQL_ROOT_PASSWORD="$(get_env MYSQL_ROOT_PASSWORD)"
 [ -n "$SITE_ADDRESS" ] || die "请在 .env 中设置 SITE_ADDRESS（如 codeatlas.example.com；无域名可用 :80）"
-[ -n "$JWT_SECRET" ] || die "请在 .env 中设置 JWT_SECRET（随机 32 字节以上）"
+
+# JWT_SECRET 是唯一身份凭证：曾作为默认值公开的占位密钥必须拒绝，
+# 否则任何人拿它签一个 admin 的 Token 就能拿到全部权限。
+case "$JWT_SECRET" in
+  codeatlas-default-secret*)
+    die "JWT_SECRET 仍是曾随源码公开的占位密钥，可被用于伪造任意用户 Token。请重新生成：$SECRET_HINT" ;;
+esac
+
+# 留空则自动生成并写回 .env：既保证「一键部署」不因缺密钥中断，
+# 又不引入任何公开默认值。仅写一次，之后重跑不会覆盖已有密钥。
+if [ -z "$JWT_SECRET" ]; then
+  JWT_SECRET="$(generate_secret)"
+  set_env JWT_SECRET "$JWT_SECRET"
+  info "JWT_SECRET 为空，已自动生成 48 字节随机密钥并写入 .env"
+fi
+
+if [ "$(printf '%s' "$JWT_SECRET" | wc -c | tr -d ' ')" -lt 32 ]; then
+  die "JWT_SECRET 不足 32 字节（HS256 要求），请重新生成：$SECRET_HINT"
+fi
+
 if [ -z "$MYSQL_ROOT_PASSWORD" ] || [ "$MYSQL_ROOT_PASSWORD" = "root" ]; then
   warn "MYSQL_ROOT_PASSWORD 仍是默认值 root，建议更换"
 fi

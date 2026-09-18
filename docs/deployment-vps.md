@@ -72,7 +72,9 @@ DEEPSEEK_API_KEY=sk-xxx
 GITHUB_TOKEN=github_pat_xxx
 ```
 
-> `JWT_SECRET` 生成示例：`openssl rand -base64 48`
+> `JWT_SECRET` 生成示例：`openssl rand -base64 48`。留空也不要紧——`./deploy.sh` 会检测到并自动生成、写回 `.env`（不会覆盖已有值）。
+>
+> 注意：本项目**不提供内置默认密钥**，也不允许使用曾随源码公开的占位值——这类值等于公开的签名凭证，配置后 `deploy.sh` 会直接报错退出。
 
 ### 第 3 步：一键部署
 
@@ -131,7 +133,7 @@ curl http://<服务器IP>/health
 
 完整清单见 [deployment.md 第九节](deployment.md#九生产环境注意事项)，重点三条：
 
-1. **`JWT_SECRET` 必须改**（否则可被伪造 Token）。
+1. **`JWT_SECRET` 必须是你自己的随机值**——项目不提供内置默认密钥，若沿用曾公开的占位值，后端会直接拒绝启动。
 2. **`MYSQL_ROOT_PASSWORD` 必须改**（默认 `root` 一旦公网暴露等于裸奔）。
 3. 后端 8080 / 前端 8081 已在 `docker-compose.prod.yml` 中改为只绑 `127.0.0.1`，公网只开放 80 / 443。
 

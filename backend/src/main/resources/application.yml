@@ -74,7 +74,11 @@ codeatlas:
       token: ${GITHUB_TOKEN:}
 
   jwt:
-    secret: ${JWT_SECRET:codeatlas-default-secret-please-change-in-production-environment-32bytes}
+    # 刻意不提供内置默认密钥：默认值一旦写进仓库即等同公开，
+    # 攻击者可用它伪造任意用户（含管理员）的 Token，且服务端无法分辨真伪。
+    # 未配置时后端会生成本进程随机密钥并打印告警（重启后登录态失效）。
+    # 生产环境请在 .env 中配置固定密钥，生成方式见 .env.example。
+    secret: ${JWT_SECRET:}
     expiration: ${JWT_EXPIRATION:7200}
 
   # 安全相关配置（Phase 11）

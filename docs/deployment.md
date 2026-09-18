@@ -74,7 +74,7 @@ DEEPSEEK_API_KEY=sk-xxxxxxxx
 JWT_SECRET=<随机字符串，32 字节以上>
 ```
 
-> `.env` 已被 `.gitignore` 忽略，不会进入版本库。所有变量都有默认值，不创建 `.env` 也能启动，但生产环境必须覆盖以上三项。
+> `.env` 已被 `.gitignore` 忽略，不会进入版本库。除 `JWT_SECRET` 外的变量都有默认值，不创建 `.env` 也能启动；`JWT_SECRET` 留空时后端会生成随机密钥（Token 不可伪造，但重启后需重新登录）。生产环境必须覆盖以上三项。
 
 > **`.env` 不是唯一途径**：`docker-compose.yml` 中一律写成 `${VAR:-默认值}`，Compose 会**先读宿主机环境变量**，读不到才用默认值。所以只要宿主机已有这些变量，不创建 `.env` 也能正常工作。例如把 Key 设为 Windows 用户级环境变量：
 >
@@ -183,7 +183,7 @@ docker compose exec mysql mysql -uroot -p codeatlas
 |---|---|---|
 | `MYSQL_ROOT_PASSWORD` | `root` | 数据库密码，同时作为后端连接密码 |
 | `DB_NAME` | `codeatlas` | 数据库名 |
-| `JWT_SECRET` | 内置占位密钥 | **生产必须覆盖**，HS256 要求 ≥32 字节 |
+| `JWT_SECRET` | 空（启动时随机生成） | HS256 要求 ≥32 字节。留空则生成本进程随机密钥，重启后登录态失效；使用曾公开的占位值或长度不足会**拒绝启动** |
 | `JWT_EXPIRATION` | `7200` | Token 有效期（秒） |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:8081` | 跨域白名单，逗号分隔，禁止 `*` |
 | `DEEPSEEK_API_KEY` | 空 | 不配置则 AI 生成类功能不可用 |
@@ -284,7 +284,9 @@ docker compose up -d
 本项目默认配置面向**个人 / 小团队内网或单机演示**。若要对外提供访问，请至少做到以下几点：
 
 1. **必须覆盖 `JWT_SECRET`**
-   使用内置占位密钥时，后端启动日志会打印告警。攻击者可用公开的占位密钥伪造任意用户的 Token。
+   本项目不提供内置默认密钥：默认值一旦写进仓库就等于公开，攻击者可用它伪造任意用户（含管理员）的 Token，且服务端无法分辨真伪。
+   留空时后端会生成随机密钥（不可伪造，但重启后需重新登录、多实例不互通）；`./deploy.sh` 会自动生成并写入 `.env`。
+   轮换该值会让所有已签发的 Token 立即失效，用户需重新登录。
 
 2. **必须更换 `MYSQL_ROOT_PASSWORD`**，不要沿用默认的 `root`。
 
