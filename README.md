@@ -198,32 +198,102 @@ curl http://localhost:8080/api/v1/users/me \
   -H "Authorization: Bearer <token>"
 ```
 
-### 2.7 部署到 Docker
+### 2.7 一键部署到 Docker（换台电脑也能跑）
 
-2.6 是开发模式。若想**一条命令启动完整系统**（前端 + 后端 + MySQL + Redis + Qdrant + Ollama），使用根目录的 `docker-compose.yml`：
+2.6 是开发模式。若想**在任意一台装了 Docker 的电脑上，用一条命令跑起完整系统**（前端 + 后端 + MySQL + Redis + Qdrant + Ollama），使用根目录的 `docker-compose.yml`。
+
+**前置条件**
+
+| 项 | 要求 |
+|---|---|
+| Docker | Docker Desktop（Windows / macOS）或 Docker Engine 24+（Linux），需含 Compose v2（即 `docker compose` 子命令） |
+| 内存 | 可用内存 ≥ 4GB，建议 8GB（MySQL + Redis + Qdrant + Ollama + 后端 JVM） |
+| 磁盘 | ≥ 8GB（镜像约 2GB + Embedding 模型 1.2GB + 数据卷） |
+| 网络 | 首次需能拉取镜像与 Maven / npm 依赖；运行期需能访问 DeepSeek API |
+
+**操作步骤（3 步）**
 
 ```bash
-# 1. 配置环境变量（至少填 MYSQL_ROOT_PASSWORD 与 DEEPSEEK_API_KEY）
-cp .env.example .env
+# ① 获取代码
+git clone <仓库地址>
+cd CodeAtlas
 
-# 2. 构建并启动全部服务
-docker compose up -d
+# ② 配置环境变量（可跳过，但跳过则 AI 功能不可用）
+cp .env.example .env          # Windows PowerShell 用：Copy-Item .env.example .env
 
-# 3. 拉取 Embedding 模型（只需一次，约 1.2GB）
-docker compose exec ollama ollama pull bge-m3
+# ③ 一条命令构建并启动全部服务（含自动拉取 Embedding 模型）
+docker compose up -d --build
 ```
 
-启动后访问 **http://localhost:8081**（前端），健康检查在 **http://localhost:8080/health**。
+**第 ② 步要填什么**
 
-两种方式的区别：
-
-| | 开发模式（2.6） | Docker 完整部署 |
+| 变量 | 必填性 | 不填会怎样 |
 |---|---|---|
-| 启动命令 | `docker compose -f docker-compose.dev.yml up -d` | `docker compose up -d` |
+| `DEEPSEEK_API_KEY` | **必填** | AI 问答 / Code Review / Git 摘要 / Agent 全部不可用；注册登录、上传资料、构建知识库仍正常 |
+| `JWT_SECRET` | 建议 | 不填则每次启动生成随机密钥：Token 不可伪造，但重启后需重新登录；多实例不互通。长期部署请填固定值 |
+| `MYSQL_ROOT_PASSWORD` | 建议 | 数据库密码保持默认的 `root` |
+| `GITHUB_TOKEN` | 建议 | 匿名调用限速 60 次/小时，同步提交与生成摘要易报 403（配置后 5000 次/小时） |
+| `FRONTEND_PORT` | 按需 | 默认 `8081`，仅在端口被占用时才需要改 |
+
+> 完整清单与逐项说明见 `.env.example`；变量含义见[部署指南 · 环境变量](docs/deployment.md#五环境变量)。
+
+**访问地址**
+
+浏览器打开 **http://localhost:8081**，健康检查在 **http://localhost:8080/health**。
+
+**同一局域网内的其他人**把 `localhost` 换成这台机器的 IP 即可（前端 Nginx 监听 `0.0.0.0`，已对局域网开放）：
+
+```powershell
+# Windows：查看本机 IPv4 地址
+ipconfig | Select-String "IPv4"
+```
+
+```bash
+# Linux / macOS
+ip addr | grep "inet " | grep -v 127.0.0.1
+```
+
+例如查到 `192.168.1.20`，其他人就访问 `http://192.168.1.20:8081`。
+若不通，检查宿主防火墙是否放行 **8081**（Windows 首次运行 Docker 时通常会弹出网络授权提示，需选择允许）。
+
+**首次启动会发生什么**
+
+| 阶段 | 耗时 | 说明 |
+|---|---|---|
+| 构建镜像 | 3 ~ 10 分钟 | 拉基础镜像 + 编译后端（Maven）与前端（npm），取决于网络 |
+| 基础服务就绪 | 约 30 秒 | MySQL / Redis 通过健康检查 → 后端启动 → 前端 Nginx 就绪 |
+| **此时即可访问** | —— | http://localhost:8081 已能打开、注册、登录、上传资料 |
+| 后台拉模型 | 视网速 | `ollama-init` 自动拉取 Embedding 模型（约 1.2GB，仅首次） |
+
+**模型下载完成之前，不要点「构建知识库」**，否则会失败。查看下载进度：
+
+```bash
+docker compose logs -f ollama-init
+```
+
+**确认是否就绪**
+
+```bash
+docker compose ps            # 前端 / 后端 / MySQL / Redis 应显示 healthy
+docker compose ps -a         # 需加 -a 才能看到 ollama-init
+curl http://localhost:8080/health
+# {"status":"UP","db":"up","redis":"up"}
+```
+
+`codeatlas-ollama-init` 显示 **`Exited (0)` 是正常的** —— 它是一次性任务，拉完模型就退出；`docker compose ps` 默认只列出运行中的容器，所以要用 `ps -a` 才看得到。
+
+> **命令里不要加 `--wait`。** `--wait` 会把一次性容器的正常退出判定为「启动失败」，导致命令以非 0 退出并报错。
+
+**两种方式的区别**
+
+| | 开发模式（2.6） | Docker 一键部署（2.7） |
+|---|---|---|
+| 启动命令 | `docker compose -f docker-compose.dev.yml up -d` | `docker compose up -d --build` |
 | 前端 | 宿主机 `npm run dev`，端口 **5173** | Nginx 容器，端口 **8081** |
 | 后端 | 宿主机 `mvn spring-boot:run` | 容器，端口 **8080** |
 | 数据库等依赖 | 端口对宿主机开放（23306 / 16379 / 6333） | 仅容器网络内可达，不对外暴露 |
 | 前端如何调接口 | Vite Dev Server 代理 `/api` | Nginx 反向代理 `/api` |
+| Embedding 模型 | 宿主机 Ollama，需手动 `ollama pull bge-m3` | 容器内 Ollama，由 `ollama-init` 自动拉取 |
 | 适用场景 | 改代码即时热更新 | 演示、交付、长期运行 |
 
 容器编排、数据卷备份、生产环境注意事项与故障排查详见 **[部署指南](docs/deployment.md)**。
@@ -234,9 +304,13 @@ docker compose exec ollama ollama pull bge-m3
 
 | 现象 | 原因与处理 |
 |---|---|
+| `docker compose ps` 看不到 `ollama-init` | 它是一次性任务，正常退出后不再显示；用 `docker compose ps -a` 查看，状态为 `Exited (0)` 即正常 |
+| 执行 `up -d --wait` 报错退出 | `--wait` 会把 `ollama-init` 的正常退出判定为启动失败，去掉该参数即可 |
+| 打开 8081 报「无法访问」或接口 502 | 首次启动时前端要等后端通过健康检查才开始运行，稍等约 30 秒再刷新；仍不行看 `docker compose logs backend` |
 | AI 回答「未在项目资料中找到依据」 | 知识库没构建，或资料未上传 —— 先执行「构建知识库」 |
 | 上传被拒绝 | 扩展名不在白名单（文档 md/txt/pdf，代码 12 种源码扩展名），或文档超过 20MB、代码超过 5MB |
-| 知识库构建一直失败 | 检查 Ollama 是否运行、`bge-m3` 是否已拉取 |
+| 知识库构建一直失败 | 模型还没下完或拉取失败：`docker compose logs ollama-init`；也可确认容器内已装模型 `docker compose exec ollama ollama list` |
+| 局域网其他电脑打不开 8081 | 检查宿主防火墙是否放行 8081，以及用的是 `http://<本机IP>:8081` 而不是 `localhost` |
 | 升级过 Embedding 模型后检索异常 | 向量维度不匹配，需清空知识库后重建 |
 | 登录报 429 | 连续失败 5 次触发锁定，等待 15 分钟 |
 
@@ -244,7 +318,7 @@ docker compose exec ollama ollama pull bge-m3
 
 ## 三、开发进度
 
-**Phase 12：Docker 部署**（已完成 —— 前后端多阶段镜像构建 + 六服务编排，`docker compose up -d` 一条命令启动完整系统）
+**Phase 12：Docker 部署**（已完成 —— 前后端多阶段镜像构建 + 六服务编排 + Embedding 模型自动拉取，`docker compose up -d --build` 一条命令启动完整系统）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -335,6 +409,7 @@ CodeAtlas/
 │   ├── api.md              REST API 设计
 │   ├── development.md      开发阶段计划与开发规范
 │   ├── deployment.md       Docker 部署指南
+│   ├── deployment-vps.md   云服务器（VPS）生产部署指南
 │   └── decisions/          架构决策记录（ADR）
 ├── backend/                Spring Boot 后端（Java 17 + Maven）
 │   ├── Dockerfile          多阶段构建：Maven 编译 → JRE 运行
@@ -415,7 +490,7 @@ codeatlas:
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `JWT_SECRET` | 内置占位密钥 | **生产必须覆盖**，HS256 要求 ≥32 字节，否则启动时打印告警 |
+| `JWT_SECRET` | 空（启动时随机生成） | HS256 要求 ≥32 字节。未配置则生成本进程随机密钥，重启后登录态失效；配置成曾公开的占位值或长度不足时后端**拒绝启动** |
 | `JWT_EXPIRATION` | `7200` | Token 有效期（秒） |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 跨域白名单，逗号分隔，禁止 `*`；Docker 部署时请改为前端实际地址 |
 | `LOGIN_MAX_ATTEMPTS` | `5` | 登录连续失败多少次后锁定账号 |

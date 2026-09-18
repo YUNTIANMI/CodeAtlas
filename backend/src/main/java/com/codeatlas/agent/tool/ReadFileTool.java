@@ -8,7 +8,6 @@ import com.codeatlas.document.repository.DocumentRepository;
 import com.codeatlas.storage.StorageService;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 

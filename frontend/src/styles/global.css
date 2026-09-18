@@ -282,23 +282,9 @@ a:hover {
   overflow: hidden;
 }
 
-.card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
 .card__title {
   font-size: 14px;
   font-weight: 620;
-}
-
-.card__body {
-  padding: 18px;
 }
 
 .grid {
@@ -333,10 +319,6 @@ a:hover {
 
 .row--between {
   justify-content: space-between;
-}
-
-.spacer {
-  flex: 1;
 }
 
 /* ---------------- 按钮 ---------------- */

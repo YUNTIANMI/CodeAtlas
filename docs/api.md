@@ -175,6 +175,7 @@ Authorization: Bearer <token>
 |---|---|---|
 | POST | `/api/v1/projects/{id}/documents` | 上传文档（multipart） |
 | GET | `/api/v1/projects/{id}/documents` | 文档列表 |
+| GET | `/api/v1/projects/{id}/documents/search` | 按文件名关键字检索（`keyword`） |
 | GET | `/api/v1/documents/{docId}` | 文档详情 |
 | DELETE | `/api/v1/documents/{docId}` | 删除文档 |
 
@@ -220,7 +221,17 @@ Authorization: Bearer <token>
 |---|---|---|
 | POST | `/api/v1/projects/{id}/knowledge/build` | 触发知识库构建 |
 | GET | `/api/v1/projects/{id}/knowledge/status` | 构建状态与进度 |
+| POST | `/api/v1/projects/{id}/knowledge/search` | 向量检索，只返回片段，不生成答案 |
+| POST | `/api/v1/projects/{id}/knowledge/ask` | RAG 问答：检索 + 生成 + 引用 |
 | DELETE | `/api/v1/projects/{id}/knowledge` | 清空知识库 |
+
+**检索 / 问答请求体**（`search` 与 `ask` 共用）
+
+```json
+{ "query": "登录流程是怎么实现的？", "topK": 5 }
+```
+
+`query` 必填；`topK` 默认 5。
 
 **构建状态响应**
 
@@ -240,8 +251,9 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/projects/{id}/chat` | 发起问答 |
-| GET | `/api/v1/conversations` | 会话列表 |
+| GET | `/api/v1/projects/{id}/conversations` | 项目内的会话列表 |
 | GET | `/api/v1/conversations/{id}/messages` | 会话消息 |
+| DELETE | `/api/v1/conversations/{id}` | 删除会话 |
 
 **POST /projects/{id}/chat**
 
@@ -321,6 +333,8 @@ Authorization: Bearer <token>
 
 ## 10. Bug 分析
 
+> ⬜ **规划中，尚未实现。** 本节为接口设计约定，代码中暂无对应 Controller。
+
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/projects/{id}/bug-analysis` | 提交错误日志分析 |
@@ -361,13 +375,41 @@ Authorization: Bearer <token>
 | POST | `/api/v1/projects/{id}/git` | 配置仓库 |
 | POST | `/api/v1/projects/{id}/git/sync` | 同步 Commits，可选 `limit`（默认 30，最大 500），超过 100 条自动翻页拉取 |
 | GET | `/api/v1/projects/{id}/git/commits` | 提交列表 |
+| GET | `/api/v1/git/commits/{id}` | 提交详情 |
 | GET | `/api/v1/git/commits/{id}/summary` | AI 提交摘要 |
 
 > 接口为**只读**语义，不提供 Push、分支修改等写操作。
 
 ---
 
-## 12. 权限校验约定
+## 12. Agent 多步检索
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/projects/{id}/agent/run` | 执行任务，由模型自主选择工具 |
+| GET | `/api/v1/projects/{id}/agent/tool-calls` | 工具调用轨迹 |
+
+**请求**
+
+```json
+{ "task": "这个项目的登录流程是怎么实现的？" }
+```
+
+工具集固定为 5 个**只读**工具，不存在任何写操作：
+
+| 工具名 | 用途 |
+|---|---|
+| `search_document` | 按关键字搜索已上传的文档（md / txt / pdf），返回名称与简介 |
+| `search_code` | 按关键字搜索源代码，返回文件路径与代码片段 |
+| `read_file` | 读取某个文件的完整内容，支持源代码与文档 |
+| `get_project_structure` | 获取已上传代码的目录结构，了解模块划分 |
+| `search_git_commit` | 查询 Git 提交记录，可按关键字过滤提交信息 |
+
+每一步工具调用的入参、出参、耗时与错误都会落库，可通过 `tool-calls` 追溯。
+
+---
+
+## 13. 权限校验约定
 
 所有带 `projectId` 的接口，Service 层必须执行：
 
@@ -382,7 +424,7 @@ Authorization: Bearer <token>
 
 ---
 
-## 13. 限流
+## 14. 限流
 
 | 场景 | 限制 | 实现状态 |
 |---|---|---|

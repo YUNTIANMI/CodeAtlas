@@ -505,16 +505,18 @@ Backend
 MySQL
 Redis
 Qdrant
+Ollama
 Nginx
 ```
 
 最终实现：
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-可以启动完整系统。
+即可启动完整系统。Embedding 模型由 `ollama-init` 一次性任务自动拉取，
+因此换一台电脑部署时不需要再手动执行 `ollama pull`。
 
 ---
 
@@ -601,7 +603,9 @@ docs/
 └── decisions/
     ├── ADR-001-database.md
     ├── ADR-002-vector-db.md
-    └── ADR-003-auth.md
+    ├── ADR-003-auth.md
+    ├── ADR-004-monolith.md
+    └── ADR-005-agent-readonly.md
 ```
 
 记录：

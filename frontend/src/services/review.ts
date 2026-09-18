@@ -16,6 +16,4 @@ export const reviewApi = {
       method: 'GET',
       params: severity ? { severity } : undefined,
     }),
-
-  detail: (id: number) => request<ReviewResultVO>({ url: `/api/v1/reviews/${id}`, method: 'GET' }),
 }

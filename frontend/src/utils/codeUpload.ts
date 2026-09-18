@@ -22,10 +22,10 @@ export const CODE_MAX_FILE_SIZE = 5 * 1024 * 1024
 export const CODE_MAX_BATCH_FILES = 400
 
 /** 与 code_files.file_path VARCHAR(500) 一致。 */
-export const CODE_MAX_PATH_LENGTH = 500
+const CODE_MAX_PATH_LENGTH = 500
 
 /** 依赖 / 构建产物 / 缓存 / 工具目录，一律跳过。 */
-export const IGNORED_DIRECTORIES: ReadonlySet<string> = new Set([
+const IGNORED_DIRECTORIES: ReadonlySet<string> = new Set([
   'node_modules', 'bower_components', 'jspm_packages', 'vendor',
   'third_party', 'thirdparty', 'external', 'libs',
   'dist', 'build', 'out', 'output', 'target', 'bin', 'obj', 'classes',
@@ -38,13 +38,13 @@ export const IGNORED_DIRECTORIES: ReadonlySet<string> = new Set([
 ])
 
 /** 测试目录，默认跳过（界面可勾选保留）。 */
-export const TEST_DIRECTORIES: ReadonlySet<string> = new Set([
+const TEST_DIRECTORIES: ReadonlySet<string> = new Set([
   'test', 'tests', '__tests__', 'spec', 'specs', 'e2e',
   'mocks', '__mocks__', 'fixtures', '__snapshots__', 'snapshots',
 ])
 
 /** 生成 / 压缩产物，按后缀跳过。 */
-export const IGNORED_FILE_SUFFIXES: readonly string[] = [
+const IGNORED_FILE_SUFFIXES: readonly string[] = [
   '.min.js', '.min.css', '.bundle.js', '.chunk.js',
   '.d.ts', '.map', '.generated.ts', '.generated.js',
   '.g.dart', '.pb.go', '_pb2.py',
@@ -59,7 +59,7 @@ export type SkipReason =
   | 'too-large'
   | 'path-too-long'
 
-export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
+const SKIP_REASON_LABELS: Record<SkipReason, string> = {
   'ignored-directory': '依赖 / 构建产物',
   'test-directory': '测试目录',
   'generated-file': '生成文件',
@@ -107,13 +107,13 @@ export interface SkipGroup {
 }
 
 /** 取路径中的文件名。 */
-export function fileNameOf(path: string): string {
+function fileNameOf(path: string): string {
   const idx = path.lastIndexOf('/')
   return idx >= 0 ? path.slice(idx + 1) : path
 }
 
 /** 取小写扩展名（不含点）；无扩展名返回空串。 */
-export function extensionOf(name: string): string {
+function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.')
   if (dot <= 0 || dot === name.length - 1) {
     return ''
@@ -125,7 +125,7 @@ export function extensionOf(name: string): string {
  * 目录上传时 File 自带 webkitRelativePath，形如 my-app/src/main/java/A.java。
  * TS 类型里没有该属性，这里安全兜底为文件名。
  */
-export function relativePathOf(file: File): string {
+function relativePathOf(file: File): string {
   const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath
   return rel && rel.length > 0 ? rel : file.name
 }
@@ -136,7 +136,7 @@ export function relativePathOf(file: File): string {
  * 2. 路径中出现 src 段则从该段截断（兼容用户直接选项目根目录）；
  * 3. 否则丢弃首段（即系统对话框里选中的那一层文件夹名）。
  */
-export function normalizeSourcePath(relativePath: string): string {
+function normalizeSourcePath(relativePath: string): string {
   const segments = relativePath
     .replace(/\\/g, '/')
     .split('/')

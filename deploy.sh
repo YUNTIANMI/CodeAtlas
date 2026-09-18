@@ -89,9 +89,18 @@ fi
 info "构建并启动全部服务（含 Caddy 入口）……"
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-# ---------- 5. 拉取 Embedding 模型（幂等） ----------
-info "确保 Embedding 模型已就绪（首次约 1.2GB）……"
-docker compose exec ollama ollama pull bge-m3 || warn "模型拉取失败，稍后可手动执行：docker compose exec ollama ollama pull bge-m3"
+# ---------- 5. 等待 Embedding 模型就绪 ----------
+# 模型由 ollama-init 服务在启动时自动拉取（幂等：模型已存在则秒级完成）。
+info "等待 Embedding 模型就绪（首次约 1.2GB，可执行 docker compose logs -f ollama-init 查看进度）……"
+for _ in $(seq 1 150); do
+  if [ "$(docker inspect -f '{{.State.Status}}' codeatlas-ollama-init 2>/dev/null)" = "exited" ]; then break; fi
+  sleep 4
+done
+if [ "$(docker inspect -f '{{.State.ExitCode}}' codeatlas-ollama-init 2>/dev/null)" = "0" ]; then
+  info "Embedding 模型已就绪。"
+else
+  warn "模型拉取尚未完成或失败，请检查：docker compose logs ollama-init"
+fi
 
 # ---------- 6. 健康检查 ----------
 info "等待后端就绪……"

@@ -83,13 +83,16 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-脚本会自动：安装 Docker（若缺失）→ 校验 `.env` → `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` → 拉取 Embedding 模型 → 健康检查 → 打印访问地址。
+脚本会自动：安装 Docker（若缺失）→ 校验 `.env` → `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` → 等待 Embedding 模型自动就绪 → 健康检查 → 打印访问地址。
 
 等价的手动命令：
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-docker compose exec ollama ollama pull bge-m3
+
+# Embedding 模型由 ollama-init 服务自动拉取，无需手动执行；
+# 查看进度：docker compose logs -f ollama-init
+# 确认完成：docker compose ps -a   （ollama-init 应为 Exited (0)）
 ```
 
 ### 第 4 步：配置域名解析（仅「有域名」时）

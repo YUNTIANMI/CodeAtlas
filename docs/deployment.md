@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `docker-compose.yml` | 完整系统编排（6 个服务） |
+| `docker-compose.yml` | 完整系统编排（6 个常驻服务 + 1 个一次性模型拉取任务） |
 | `docker-compose.dev.yml` | 仅基础设施，供本地开发使用 |
 | `backend/Dockerfile` | 后端多阶段构建 |
 | `frontend/Dockerfile` | 前端多阶段构建 |
@@ -42,6 +42,7 @@
 
 - **前端与接口同源**。浏览器只访问 Nginx，`/api` 由 Nginx 转发到后端容器，因此生产环境不涉及跨域。
 - **数据库、缓存、向量库、Ollama 均不暴露到宿主机**，只有前端（8081）与后端（8080）对外映射端口。
+- **Embedding 模型自动就绪**。`ollama-init` 是一次性容器，在 Ollama 通过健康检查后拉取模型（约 1.2GB，仅首次），拉完即退出。因此部署过程**不需要手动执行 `ollama pull`**。
 - LLM（DeepSeek）是外部 API，需要出网；Embedding 使用容器内的 Ollama，可离线运行。
 
 ---
@@ -51,8 +52,8 @@
 | 项目 | 要求 |
 |---|---|
 | Docker | 24 及以上，含 Compose v2（`docker compose` 子命令） |
-| 内存 | 建议 4GB 以上（MySQL 1G + Qdrant 300M + Ollama 1G + 构建开销） |
-| 磁盘 | 建议 6GB 以上（镜像约 2GB，Ollama 模型约 1.2GB，其余为数据卷） |
+| 内存 | 可用内存 4GB 以上，建议 8GB（MySQL 1G + Qdrant 300M + Ollama 1G + 后端 JVM + 构建开销） |
+| 磁盘 | 建议 8GB 以上（镜像约 2GB，Ollama 模型约 1.2GB，其余为数据卷与构建缓存） |
 | DeepSeek API Key | 用于问答 / 代码审查 / Git 摘要 / Agent；缺失时这些功能不可用 |
 | 网络 | 首次构建需拉取镜像与依赖；运行期需能访问 DeepSeek API |
 
@@ -93,25 +94,36 @@ JWT_SECRET=<随机字符串，32 字节以上>
 ### 第 2 步：构建并启动
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 首次执行会构建前后端镜像，耗时取决于网络与机器性能。后端容器启动时会通过 `schema.sql` 自动建表（建表语句带 `IF NOT EXISTS`，可重复执行），并初始化 `ROLE_USER` / `ROLE_ADMIN`。
 
-### 第 3 步：拉取 Embedding 模型
+> **不要加 `--wait` 参数。** 本编排含一次性任务容器 `ollama-init`，`--wait` 会把它的正常退出（`Exited (0)`）判定为启动失败，导致命令以非 0 退出。
 
-这一步只需执行一次。模型约 1.2GB，存放在 `ollama-data` 数据卷中：
+### 第 3 步：等待 Embedding 模型自动就绪
+
+模型由 `ollama-init` 服务自动拉取，**无需手动执行任何命令**。首次约 1.2GB，存放在 `ollama-data` 数据卷中；模型已存在时这一步秒级完成。
 
 ```bash
-docker compose exec ollama ollama pull bge-m3
+# 查看拉取进度（可在另一个终端执行）
+docker compose logs -f ollama-init
+
+# 确认结果：Exited (0) 即成功
+docker compose ps -a
+
+# 确认容器内确实已装好模型
+docker compose exec ollama ollama list
 ```
 
-> **不执行这一步，知识库构建会失败**，AI 问答也没有可检索的数据。这是部署后最常见的遗漏。
+> **模型没下完就点「构建知识库」会失败**，AI 问答也没有可检索的数据。这是部署后最常见的遗漏。
+> 若 `ollama-init` 退出码非 0，多为网络无法访问 Ollama 模型仓库，看日志定位；也可改用外部 Embedding 服务（见第五节 `AI_EMBEDDING_*` 变量）。
 
 ### 第 4 步：验证
 
 ```bash
-# 1. 业务容器应全部为 healthy（qdrant / ollama 未定义健康检查，Running 即可）
+# 1. 业务容器应全部为 healthy（qdrant 未定义健康检查，Running 即可）
+#    注意 ps 默认不列出已退出的一次性容器，需加 -a 才能看到 ollama-init
 docker compose ps
 
 # 2. 后端存活 + 依赖连通性：db / redis 均为 up 才算正常
@@ -155,6 +167,7 @@ curl -X POST http://localhost:8081/api/v1/auth/login \
 | redis | `codeatlas-redis` | 不暴露 | 6379 | 缓存 / 登录限流 / Token 黑名单 |
 | qdrant | `codeatlas-qdrant` | 不暴露 | 6333 | 向量知识库 |
 | ollama | `codeatlas-ollama` | 不暴露 | 11434 | 本地 Embedding 服务 |
+| ollama-init | `codeatlas-ollama-init` | 不暴露 | —— | 一次性任务：拉取 Embedding 模型后退出（`Exited (0)` 属正常，用 `ps -a` 查看） |
 
 容器之间通过服务名通信（如后端连的是 `mysql:3306`，而非 `localhost:23306`），这是容器网络中的正常行为。
 
@@ -328,7 +341,10 @@ docker compose up -d
 | `docker compose up -d` 后 backend 反复重启 | 看日志 `docker compose logs backend`。多为数据库未就绪或密码不一致：确认 `.env` 中 `MYSQL_ROOT_PASSWORD` 未被中途修改（MySQL 只在数据卷首次初始化时读取该变量，之后改密码需先 `docker compose down -v` 清空数据）。 |
 | 前端能打开但接口全报 502 | 后端未就绪或已崩溃。先 `curl http://localhost:8080/health` 确认后端存活。 |
 | 浏览器控制台报 CORS 错误 | 仅发生在直连后端调试时。使用完整部署（同源）不会有此问题；如确需跨域，把前端地址加入 `CORS_ALLOWED_ORIGINS`。 |
-| 知识库构建失败 | 多为 Ollama 未拉取模型，执行 `docker compose exec ollama ollama pull bge-m3`。其次确认后端到 Ollama 可达：`docker exec codeatlas-backend curl -s http://ollama:11434/api/tags`，正常应返回模型列表 JSON。 |
+| 知识库构建失败 | 先确认模型是否拉取成功：`docker compose logs ollama-init`、`docker compose ps -a`（应为 `Exited (0)`）。其次确认后端到 Ollama 可达：`docker exec codeatlas-backend curl -s http://ollama:11434/api/tags`，正常应返回模型列表 JSON。 |
+| `docker compose ps` 看不到 `ollama-init` | 它是一次性任务，正常退出后不再出现在默认列表中，用 `docker compose ps -a` 查看。 |
+| 执行 `up -d --wait` 报 `container codeatlas-ollama-init exited (0)` | 预期行为：`--wait` 不接受一次性容器。去掉 `--wait`，改用 `docker compose ps` 自行确认状态。 |
+| 局域网内其他电脑打不开前端 | 确认用的是 `http://<宿主IP>:8081` 而不是 `localhost`，并检查宿主防火墙是否放行 8081。前端 Nginx 已监听 `0.0.0.0`，无需改配置。 |
 | AI 功能报「缺少 API Key」 | 后端没拿到 `DEEPSEEK_API_KEY`。它有两个来源，按优先级排查：① 宿主机环境变量 `$env:DEEPSEEK_API_KEY`；② 项目根目录 `.env`。用 `docker inspect codeatlas-backend --format "{{range .Config.Env}}{{println .}}{{end}}"` 查看容器实际变量（找 `DEEPSEEK_API_KEY=` 那一行）。为空则设置后 `docker compose up -d` 重建容器；注意宿主机变量会覆盖 `.env`。 |
 | 多个项目导入同一个仓库时，提交列表明显偏少 | 旧版本 `git_commits` 的唯一键是 `commit_hash` 全局唯一，后导入的项目会把所有提交判为「已存在」而跳过。当前版本已改为 `(repo_id, commit_hash)`，后端启动时经 `schema.sql` 自动迁移。核查是否生效：`docker compose exec mysql mysql -uroot -p codeatlas -e "show index from git_commits"`，应能看到 `uk_git_commits_repo_hash` 且不再有 `uk_git_commits_hash`。之后在页面重新点「同步提交」即可补齐（已入库的提交会跳过，不会产生重复）。 |
 | 上传大文件报 413 | 文档上限 20MB，Nginx 侧 `client_max_body_size` 已设为 25m。若自行调大后端上限，需同步调整 `frontend/nginx.conf`。 |
