@@ -1,0 +1,14 @@
+# ============================================================
+# CodeAtlas 对外入口（Caddy 自动 HTTPS）
+#
+# SITE_ADDRESS 由 docker-compose.prod.yml 通过环境变量注入，常见取值：
+#   codeatlas.example.com    有域名：自动签发 / 续期 Let's Encrypt 证书
+#   :80                      无域名：仅 HTTP，访问 http://<服务器IP>
+# ============================================================
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# 前端容器（Nginx 托管静态资源，并把 /api 反向代理到后端）
+	reverse_proxy frontend:80
+}

@@ -1,35 +1,55 @@
-# 本地开发依赖环境
-# 启动：docker compose up -d
-# 停止：docker compose down
+# ============================================================
+# CodeAtlas 完整系统 —— 一条命令启动全部服务
 #
-# 端口说明：本机 3306 已被系统 MySQL 服务占用、6379 已被其他项目容器占用、
-# 3308 落在 Hyper-V 保留端口段，因此 CodeAtlas 本地环境使用 23306 / 16379。
-# 应用配置（application.yml）的默认值已与之对应。
+#   docker compose up -d              启动（首次会自动构建前后端镜像）
+#   docker compose ps                 查看状态
+#   docker compose logs -f backend    查看后端日志
+#   docker compose down               停止（保留数据）
+#   docker compose down -v            停止并清空所有数据
+#
+# 启动后访问：
+#   前端        http://localhost:8081
+#   后端健康检查 http://localhost:8080/health
+#
+# 仅需要本地开发依赖（MySQL / Redis / Qdrant）时，请改用：
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# 首次启动还需要拉取 Embedding 模型（约 1.2GB，只需执行一次）：
+#   docker compose exec ollama ollama pull bge-m3
+# ============================================================
+
+name: codeatlas
 
 services:
+
+  # ---------------- 业务数据库 ----------------
   mysql:
     image: mysql:8.4
     container_name: codeatlas-mysql
-    ports:
-      - "23306:3306"
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: codeatlas
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-codeatlas}
       TZ: Asia/Shanghai
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      # 用 MYSQL_PWD 而非 -p 传密码，避免密码含特殊字符时解析出错。
+      # $$ 让变量在容器内展开，而不是被 compose 提前替换。
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
+    networks:
+      - codeatlas-net
 
+  # ---------------- 缓存 / 登录限流 / Token 黑名单 ----------------
   redis:
     image: redis:7-alpine
     container_name: codeatlas-redis
-    ports:
-      - "16379:6379"
+    restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
@@ -38,17 +58,125 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 10s
+    networks:
+      - codeatlas-net
 
+  # ---------------- 向量知识库 ----------------
   qdrant:
     image: qdrant/qdrant:latest
     container_name: codeatlas-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    restart: unless-stopped
     volumes:
       - qdrant-data:/qdrant/storage
+    networks:
+      - codeatlas-net
+
+  # ---------------- 本地 Embedding 模型服务 ----------------
+  # 免费、无需 API Key、可离线运行；模型数据落在 ollama-data 卷中。
+  ollama:
+    image: ollama/ollama:latest
+    container_name: codeatlas-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - codeatlas-net
+
+  # ---------------- 后端 ----------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: codeatlas-backend:0.1.0
+    container_name: codeatlas-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Qdrant 官方镜像不含 curl/wget，无法做可靠健康检查；
+      # 且后端只在「构建知识库」时才访问向量库，启动阶段不做依赖。
+      qdrant:
+        condition: service_started
+    environment:
+      # --- 数据源：容器间通过服务名通信，端口用镜像内默认端口 ---
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-codeatlas}
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+
+      # --- 缓存 ---
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # --- 向量库 ---
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-codeatlas}
+
+      # --- AI：默认使用 compose 内的 Ollama 做向量化 ---
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      AI_CHAT_PROVIDER: ${AI_CHAT_PROVIDER:-deepseek}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-deepseek-chat}
+      AI_EMBEDDING_PROVIDER: ${AI_EMBEDDING_PROVIDER:-ollama}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-bge-m3}
+      AI_EMBEDDING_DIMENSION: ${AI_EMBEDDING_DIMENSION:-1024}
+      AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-http://ollama:11434}
+
+      # --- 安全 ---
+      # 未设置时沿用 application.yml 的内置占位密钥，后端启动会打印告警；
+      # 生产部署必须通过 .env 覆盖。
+      JWT_SECRET: ${JWT_SECRET:-codeatlas-default-secret-please-change-in-production-environment-32bytes}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7200}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081}
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
+      LOGIN_LOCK_SECONDS: ${LOGIN_LOCK_SECONDS:-900}
+
+      # --- Git 集成（只读）---
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+      # --- 文件存储：容器内固定路径，由数据卷持久化 ---
+      STORAGE_TYPE: local
+      STORAGE_ROOT: /app/uploads
+
+      TZ: Asia/Shanghai
+    volumes:
+      - backend-uploads:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    networks:
+      - codeatlas-net
+
+  # ---------------- 前端 ----------------
+  # Nginx 托管 React 静态资源，并把 /api 反向代理到 backend。
+  # 前端与接口同源，因此生产环境不涉及跨域。
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    image: codeatlas-frontend:0.1.0
+    container_name: codeatlas-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8081}:80"
+    networks:
+      - codeatlas-net
 
 volumes:
   mysql-data:
   redis-data:
   qdrant-data:
+  ollama-data:
+  backend-uploads:
+
+networks:
+  codeatlas-net:
+    driver: bridge

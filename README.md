@@ -128,12 +128,15 @@
 **第 1 步：启动依赖服务**
 
 ```bash
-docker compose up -d
-docker compose ps
+docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml ps
 ```
 
 本地端口分配：MySQL **23306**、Redis **16379**、Qdrant **6333**
 （3306 与 6379 在常见开发机上容易被系统服务或其他项目占用，3308 可能落在 Hyper-V 保留段，故错开）
+
+> 本节是**开发模式**：只有依赖服务跑在容器里，前后端在宿主机上直接运行，便于热更新。
+> 若想一条命令启动完整系统（含前后端容器），见 [2.7 部署到 Docker](#27-部署到-docker)。
 
 **第 2 步：准备 Embedding 模型**
 
@@ -195,7 +198,39 @@ curl http://localhost:8080/api/v1/users/me \
   -H "Authorization: Bearer <token>"
 ```
 
-### 2.7 常见问题
+### 2.7 部署到 Docker
+
+2.6 是开发模式。若想**一条命令启动完整系统**（前端 + 后端 + MySQL + Redis + Qdrant + Ollama），使用根目录的 `docker-compose.yml`：
+
+```bash
+# 1. 配置环境变量（至少填 MYSQL_ROOT_PASSWORD 与 DEEPSEEK_API_KEY）
+cp .env.example .env
+
+# 2. 构建并启动全部服务
+docker compose up -d
+
+# 3. 拉取 Embedding 模型（只需一次，约 1.2GB）
+docker compose exec ollama ollama pull bge-m3
+```
+
+启动后访问 **http://localhost:8081**（前端），健康检查在 **http://localhost:8080/health**。
+
+两种方式的区别：
+
+| | 开发模式（2.6） | Docker 完整部署 |
+|---|---|---|
+| 启动命令 | `docker compose -f docker-compose.dev.yml up -d` | `docker compose up -d` |
+| 前端 | 宿主机 `npm run dev`，端口 **5173** | Nginx 容器，端口 **8081** |
+| 后端 | 宿主机 `mvn spring-boot:run` | 容器，端口 **8080** |
+| 数据库等依赖 | 端口对宿主机开放（23306 / 16379 / 6333） | 仅容器网络内可达，不对外暴露 |
+| 前端如何调接口 | Vite Dev Server 代理 `/api` | Nginx 反向代理 `/api` |
+| 适用场景 | 改代码即时热更新 | 演示、交付、长期运行 |
+
+容器编排、数据卷备份、生产环境注意事项与故障排查详见 **[部署指南](docs/deployment.md)**。
+
+如需**对外发布**（云服务器 + Caddy 自动 HTTPS，一个固定链接访问），见 **[生产部署（VPS + Caddy）](docs/deployment-vps.md)**。
+
+### 2.8 常见问题
 
 | 现象 | 原因与处理 |
 |---|---|
@@ -209,7 +244,7 @@ curl http://localhost:8080/api/v1/users/me \
 
 ## 三、开发进度
 
-**Phase 11：安全**（已完成 —— 单元测试 239 项；并对运行中的服务做了 39 项端到端安全验证，全部通过）
+**Phase 12：Docker 部署**（已完成 —— 前后端多阶段镜像构建 + 六服务编排，`docker compose up -d` 一条命令启动完整系统）
 
 > 阶段编号以 [开发阶段计划](docs/development.md) 的**详细章节**为准（Phase 0 ~ Phase 12）。
 
@@ -227,7 +262,7 @@ curl http://localhost:8080/api/v1/users/me \
 | Phase 9 | Agent | ✅ 已完成 |
 | Phase 10 | 测试 | ✅ 已完成 |
 | Phase 11 | 安全 | ✅ 已完成 |
-| Phase 12 | Docker 部署 | ⬜ 待开始 |
+| Phase 12 | Docker 部署 | ✅ 已完成 |
 
 ### 核心能力清单
 
@@ -299,8 +334,10 @@ CodeAtlas/
 │   ├── database.md         数据库设计与 ER 图
 │   ├── api.md              REST API 设计
 │   ├── development.md      开发阶段计划与开发规范
+│   ├── deployment.md       Docker 部署指南
 │   └── decisions/          架构决策记录（ADR）
 ├── backend/                Spring Boot 后端（Java 17 + Maven）
+│   ├── Dockerfile          多阶段构建：Maven 编译 → JRE 运行
 │   └── src/main/java/com/codeatlas/
 │       ├── common/         统一响应 · 异常 · 安全配置
 │       ├── user/           用户实体与查询
@@ -316,6 +353,8 @@ CodeAtlas/
 │       ├── ai/             Provider 抽象 · Qdrant 客户端 · 执行日志
 │       └── storage/        文件存储抽象（本地 / 可迁移对象存储）
 ├── frontend/               React 前端（React 18 + TypeScript + Vite）
+│   ├── Dockerfile          多阶段构建：Node 编译 → Nginx 托管
+│   ├── nginx.conf          静态托管 + /api 反向代理 + SPA 路由回退
 │   └── src/
 │       ├── pages/          登录 / 注册 / 项目列表 / 项目详情（9 个功能页签）
 │       ├── components/     布局 · 路由守卫 · 通用组件
@@ -325,7 +364,12 @@ CodeAtlas/
 │       ├── types/          与后端对齐的 TypeScript 类型
 │       ├── utils/          工具函数
 │       └── styles/         样式
-└── docker-compose.yml      MySQL + Redis + Qdrant 本地环境
+├── docker-compose.yml      完整系统编排（前端 / 后端 / MySQL / Redis / Qdrant / Ollama）
+├── docker-compose.prod.yml 生产覆盖：收紧端口 + Caddy 自动 HTTPS 入口
+├── docker-compose.dev.yml  仅基础设施，供本地开发使用
+├── Caddyfile               公网 HTTPS 入口配置（自动签发证书）
+├── deploy.sh               生产环境一键部署脚本（Linux）
+└── .env.example            部署环境变量模板（复制为 .env 使用）
 ```
 
 ---
@@ -373,7 +417,7 @@ codeatlas:
 |---|---|---|
 | `JWT_SECRET` | 内置占位密钥 | **生产必须覆盖**，HS256 要求 ≥32 字节，否则启动时打印告警 |
 | `JWT_EXPIRATION` | `7200` | Token 有效期（秒） |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 跨域白名单，逗号分隔，禁止 `*` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 跨域白名单，逗号分隔，禁止 `*`；Docker 部署时请改为前端实际地址 |
 | `LOGIN_MAX_ATTEMPTS` | `5` | 登录连续失败多少次后锁定账号 |
 | `LOGIN_LOCK_SECONDS` | `900` | 锁定时长（秒） |
 | `GITHUB_TOKEN` | 空 | 同步私有仓库时需要 |
@@ -415,6 +459,8 @@ docs: update API documentation
 | [数据库设计](docs/database.md) | 14 张表字段设计、ER 图、权限矩阵与命名规范 |
 | [API 设计](docs/api.md) | REST 接口约定、错误码、各模块端点与权限要求 |
 | [开发阶段计划](docs/development.md) | 阶段划分、版本规划、AI 协同开发规范 |
+| [部署指南](docs/deployment.md) | Docker 一键部署、端口规划、数据备份、生产注意事项与故障排查 |
+| [生产部署（VPS + Caddy）](docs/deployment-vps.md) | 云服务器 + Docker + Caddy 自动 HTTPS，一个固定链接对外访问 |
 
 ### 架构决策记录（ADR）
 

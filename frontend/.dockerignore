@@ -1,0 +1,25 @@
+# 依赖与构建产物：镜像内会重新安装与构建
+node_modules/
+dist/
+.vite/
+
+# 版本控制与 IDE 数据
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+.codebuddy/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 环境变量与密钥（切勿打进镜像）
+.env
+.env.*
+!.env.example
+
+# 容器编排文件（Dockerfile 由构建器直接读取，无需进入上下文）
+Dockerfile
+.dockerignore
