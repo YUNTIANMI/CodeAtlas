@@ -1,0 +1,35 @@
+# ============================================================
+# 换行符规范
+#
+# 本项目在 Windows 上开发、在 Linux 容器中运行，因此容器相关文件
+# 必须固定为 LF：
+#   - Dockerfile 续行符 \ 之后若跟 CR，参数可能被解析出多余字符
+#   - .dockerignore 的忽略模式若带 CR，会导致规则匹配失败
+#   - nginx.conf 等配置文件同理
+#
+# 其余源码文件不做全局强制，避免一次性重写仓库中的历史文件。
+# ============================================================
+
+# 容器构建与编排
+Dockerfile*           text eol=lf
+.dockerignore         text eol=lf
+docker-compose*.yml   text eol=lf
+
+# 服务配置
+*.conf                text eol=lf
+
+# 部署脚本与对外入口配置
+*.sh                  text eol=lf
+Caddyfile             text eol=lf
+
+# 环境变量模板
+.env.example          text eol=lf
+
+# 二进制文件不做换行符转换
+*.jar                 binary
+*.png                 binary
+*.jpg                 binary
+*.jpeg                binary
+*.gif                 binary
+*.ico                 binary
+*.pdf                 binary

@@ -4,15 +4,13 @@
  */
 export default function ContentBlock({
   text,
-  className,
   maxHeight,
 }: {
   text: string
-  className?: string
   maxHeight?: number
 }) {
   return (
-    <pre className={`content-block ${className ?? ''}`} style={maxHeight ? { maxHeight } : undefined}>
+    <pre className="content-block" style={maxHeight ? { maxHeight } : undefined}>
       {text}
     </pre>
   )

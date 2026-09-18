@@ -148,7 +148,7 @@ export default function GitTab({ project }: { project: ProjectVO }) {
           <div className="row">
             <div className="form-row" style={{ width: 130 }}>
               <select className="select" value={limit} onChange={(event) => setLimit(event.target.value)}>
-                {['10', '30', '50', '100'].map((item) => (
+                {['10', '30', '50', '100', '200', '500'].map((item) => (
                   <option key={item} value={item}>
                     同步 {item} 条
                   </option>

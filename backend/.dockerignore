@@ -1,0 +1,29 @@
+# 构建产物：镜像内会重新编译，无需上传
+target/
+
+# 版本控制与 IDE 数据
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+.codebuddy/
+
+# 本地运行时产物
+uploads/
+logs/
+*.log
+
+# 文档：不参与编译
+*.md
+docs/
+
+# 环境变量与密钥（切勿打进镜像）
+.env
+.env.*
+!.env.example
+
+# 容器编排文件（由 compose 在仓库根目录读取）
+Dockerfile
+.dockerignore
+docker-compose*.yml

@@ -1,0 +1,52 @@
+# ============================================================
+# 生产环境覆盖配置（方案一：VPS + Docker + Caddy 自动 HTTPS）
+#
+# 与基础文件 docker-compose.yml 合并使用，Caddy 作为唯一对外入口：
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# 相比基础文件的差异：
+#   1. 后端 8080、前端 8081 均只绑定回环地址（127.0.0.1），不直接暴露公网；
+#   2. 新增 caddy 服务，监听 80 / 443，自动签发并续期 HTTPS 证书，
+#      反向代理到前端容器（前端 Nginx 再把 /api 转发给后端）。
+#
+# 前置：在 .env 中设置 SITE_ADDRESS
+#   有域名  -> SITE_ADDRESS=codeatlas.example.com   自动 HTTPS
+#   无域名  -> SITE_ADDRESS=:80                     仅 HTTP
+# ============================================================
+
+services:
+
+  backend:
+    # 纯 API 服务，只允许本机访问，公网统一走 Caddy -> 前端 -> 后端
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    # 只绑定回环，公网由 Caddy 统一入口
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8081}:80"
+
+  # ---------------- HTTPS 对外入口 ----------------
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: codeatlas-caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Caddyfile 中的 {$SITE_ADDRESS} 由这里注入
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS must be set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # HTTPS 证书
+      - caddy-config:/config    # 自动保存的配置
+    networks:
+      - codeatlas-net
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -84,5 +84,3 @@ export async function request<T>(config: AxiosRequestConfig): Promise<T> {
 
   return body?.data as T
 }
-
-export default http

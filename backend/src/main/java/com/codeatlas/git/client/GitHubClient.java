@@ -2,6 +2,7 @@ package com.codeatlas.git.client;
 
 import com.codeatlas.common.BusinessException;
 import com.codeatlas.common.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -25,6 +26,9 @@ import java.util.List;
 public class GitHubClient {
 
     private static final Logger log = LoggerFactory.getLogger(GitHubClient.class);
+
+    /** GitHub 提交接口单页最多返回 100 条，传更大的 per_page 也不会生效，只能翻页。 */
+    private static final int MAX_PER_PAGE = 100;
 
     private final RestClient restClient;
 
@@ -77,38 +81,62 @@ public class GitHubClient {
         }
     }
 
-    /** 获取提交列表（按时间倒序）。 */
+    /**
+     * 获取提交列表（按时间倒序）。
+     *
+     * <p>GitHub 单页最多返回 100 条，limit 大于 100 时自动翻页累加，
+     * 直到取满 limit 或远端提交耗尽为止。
+     */
     public List<CommitInfo> listCommits(String fullName, int limit) {
-        int perPage = Math.min(Math.max(limit, 1), 100);
+        int target = Math.max(limit, 1);
+        List<CommitInfo> commits = new ArrayList<>();
         try {
-            String response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/repos/" + fullName + "/commits")
-                            .queryParam("per_page", perPage)
-                            .build())
-                    .retrieve()
-                    .body(String.class);
-
-            List<CommitInfo> commits = new ArrayList<>();
-            for (JsonNode node : objectMapper.readTree(response)) {
-                String sha = text(node, "sha");
-                JsonNode commit = node.path("commit");
-                JsonNode author = commit.path("author");
-
-                commits.add(new CommitInfo(
-                        sha,
-                        text(commit, "message"),
-                        text(author, "name"),
-                        text(author, "email"),
-                        text(author, "date")));
+            int page = 1;
+            while (commits.size() < target) {
+                int perPage = Math.min(target - commits.size(), MAX_PER_PAGE);
+                List<CommitInfo> batch = fetchCommitPage(fullName, page, perPage);
+                commits.addAll(batch);
+                // 返回条数少于请求条数，说明已经到最后一页，继续翻页只会拿到空数组
+                if (batch.size() < perPage) {
+                    break;
+                }
+                page++;
             }
             return commits;
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("获取提交列表失败 | fullName={}", fullName, ex);
+            log.error("获取提交列表失败 | fullName={} | limit={}", fullName, limit, ex);
             throw new BusinessException(ErrorCode.GIT_SYNC_FAILED, "获取提交列表失败");
         }
+    }
+
+    /** 拉取提交列表的单页数据。 */
+    private List<CommitInfo> fetchCommitPage(String fullName, int page, int perPage)
+            throws JsonProcessingException {
+        String response = restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/repos/" + fullName + "/commits")
+                        .queryParam("per_page", perPage)
+                        .queryParam("page", page)
+                        .build())
+                .retrieve()
+                .body(String.class);
+
+        List<CommitInfo> commits = new ArrayList<>();
+        for (JsonNode node : objectMapper.readTree(response)) {
+            String sha = text(node, "sha");
+            JsonNode commit = node.path("commit");
+            JsonNode author = commit.path("author");
+
+            commits.add(new CommitInfo(
+                    sha,
+                    text(commit, "message"),
+                    text(author, "name"),
+                    text(author, "email"),
+                    text(author, "date")));
+        }
+        return commits;
     }
 
     /** 获取单个提交详情（含变更文件与 patch）。 */

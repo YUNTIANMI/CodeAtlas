@@ -9,7 +9,6 @@ import com.codeatlas.document.entity.FileChunk;
 import com.codeatlas.document.parser.FileParser;
 import com.codeatlas.document.repository.DocumentRepository;
 import com.codeatlas.document.repository.FileChunkRepository;
-import com.codeatlas.project.entity.ProjectRole;
 import com.codeatlas.project.service.ProjectPermissionService;
 import com.codeatlas.storage.StorageService;
 import org.junit.jupiter.api.BeforeEach;
